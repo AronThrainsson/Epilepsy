@@ -1,0 +1,43 @@
+# -----------------
+# React Native / Expo (frontend)
+# -----------------
+frontend/node_modules/
+frontend/.expo/
+frontend/.expo-shared/
+frontend/.vscode/
+frontend/dist/
+frontend/.env
+frontend/web-build/
+
+# -----------------
+# Java / Spring Boot (backend)
+# -----------------
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.idea/
+backend/.vscode/
+backend/*.iml
+backend/logs/
+backend/.env
+
+# Gradle
+backend/.gradle/
+backend/build/
+
+# Maven
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# -----------------
+# macOS
+# -----------------
+.DS_Store
+
+# -----------------
+# General
+# -----------------
+*.log
+.env
