@@ -31,6 +31,12 @@ backend/.mvn/
 backend/mvnw
 backend/mvnw.cmd
 
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
 # -----------------
 # macOS
 # -----------------
