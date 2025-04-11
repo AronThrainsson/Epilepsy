@@ -1,7 +1,10 @@
-// app/config.js
 import { Platform } from 'react-native';
 
+const LOCAL_IP = 'http://172.20.10.5:8080'; // Your Mac IP (for real device & simulator)
+
 export const BASE_URL =
-  Platform.OS === 'android'
+  Platform.OS === 'android' && !__DEV__
+    ? LOCAL_IP
+    : Platform.OS === 'android'
     ? 'http://10.0.2.2:8080'
-    : 'http://localhost:8080';
+    : LOCAL_IP;
