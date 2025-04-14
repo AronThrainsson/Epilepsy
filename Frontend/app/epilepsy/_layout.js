@@ -11,7 +11,7 @@ export default function EpilepsyLayout() {
       }}
     >
       <Tabs.Screen
-        name="screens"
+        name="home"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
