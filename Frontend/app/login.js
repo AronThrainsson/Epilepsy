@@ -27,7 +27,7 @@ export default function Login() {
         const role = data.role?.toLowerCase();
   
         if (role === 'epilepsy') {
-          router.replace('/epilepsy/home');
+          router.replace('/epilepsy/screens');
         } else if (role === 'support') {
           router.replace('support/support');
         } else {
