@@ -38,7 +38,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#F9F0FF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 30,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   buttonPrimary: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#CB97F0',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
