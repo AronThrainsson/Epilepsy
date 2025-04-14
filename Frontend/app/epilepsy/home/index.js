@@ -1,9 +1,9 @@
 import { View, Text } from 'react-native';
 
-export default function EpilepsyScreen() {
+export default function HomeScreen() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Welcome to Epilepsy Home Screen</Text>
+      <Text>Welcome to Home Screen</Text>
     </View>
   );
 }
