@@ -13,6 +13,9 @@ public class User {
     private String email;
     private String password;
 
+    @Column(name = "push_token")
+    private String pushToken;
+
     @Column(name = "first_name")
     private String firstName;
 
@@ -34,6 +37,13 @@ public class User {
         this.surname = surname;
         this.phone = phone;
         this.role = role;
+    }
+
+    public String getPushToken() {
+        return pushToken;
+    }
+    public void setPushToken(String pushToken) {
+        this.pushToken = pushToken;
     }
 
     public Long getId() { return id; }

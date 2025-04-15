@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BASE_URL } from '../config';
+import { registerForPushNotificationsAsync } from './services/notificationService';
 
 export default function Login() {
   const router = useRouter();
@@ -13,23 +14,34 @@ export default function Login() {
       Alert.alert('Please enter email and password');
       return;
     }
-  
+
     try {
       const response = await fetch(`${BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-  
+
       const data = await response.json();
-  
+
       if (response.ok) {
         const role = data.role?.toLowerCase();
-  
+
+        // Get push token
+        const pushToken = await registerForPushNotificationsAsync();
+
+        if (pushToken) {
+          await fetch(`${BASE_URL}/api/user/push-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pushToken }),
+          });
+        }
+
         if (role === 'epilepsy') {
           router.replace('/epilepsy/screens');
         } else if (role === 'support') {
-          router.replace('support/support');
+          router.replace('/support/support');
         } else {
           Alert.alert('Unknown role:', role);
         }
@@ -75,43 +87,43 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#F4F7F9',
-      paddingHorizontal: 30,
-      justifyContent: 'center',
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#2E3A59',
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    input: {
-      backgroundColor: '#fff',
-      padding: 14,
-      borderRadius: 8,
-      marginBottom: 15,
-      fontSize: 16,
-      borderColor: '#ddd',
-      borderWidth: 1,
-    },
-    button: {
-      backgroundColor: '#4F46E5',
-      paddingVertical: 14,
-      borderRadius: 8,
-      marginBottom: 10,
-    },
-    buttonText: {
-      color: 'white',
-      textAlign: 'center',
-      fontWeight: '600',
-      fontSize: 16,
-    },
-    linkText: {
-      color: '#4F46E5',
-      textAlign: 'center',
-      marginTop: 10,
-    },
-  });
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F7F9',
+    paddingHorizontal: 30,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2E3A59',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
+    borderColor: '#ddd',
+    borderWidth: 1,
+  },
+  button: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  linkText: {
+    color: '#4F46E5',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+});
