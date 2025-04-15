@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { BASE_URL } from '../config';
 import {
   View,
   Text,
@@ -9,6 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BASE_URL } from '../config';
+import { registerForPushNotificationsAsync } from './services/notificationService';
 
 export default function Signup() {
   const router = useRouter();
@@ -19,10 +20,10 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('epilepsy');
+  const [role, setRole] = useState('epilepsy'); // "epilepsy" or "support"
 
   const handleSignup = async () => {
-    if (!email || !password || !firstName || !surname || !phone || !confirmPassword) {
+    if (!firstName || !surname || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Please fill in all fields');
       return;
     }
@@ -35,9 +36,7 @@ export default function Signup() {
     try {
       const response = await fetch(`${BASE_URL}/api/auth/signup`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firstName,
           surname,
@@ -51,14 +50,27 @@ export default function Signup() {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('✅ Signup successful');
+        console.log('✅ Signup success');
+
+        // Register push token
+        const pushToken = await registerForPushNotificationsAsync();
+
+        if (pushToken) {
+          await fetch(`${BASE_URL}/api/user/push-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pushToken }),
+          });
+        }
+
+        Alert.alert('Account created. Please log in.');
         router.replace('/login');
       } else {
-        Alert.alert('❌ Signup failed', data.message || 'Something went wrong');
+        Alert.alert('Signup failed', data.message || 'Something went wrong');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('❌ Signup failed', 'Unable to reach the server');
+      Alert.alert('Signup error', 'Could not connect to the server');
     }
   };
 
@@ -72,22 +84,19 @@ export default function Signup() {
         value={firstName}
         onChangeText={setFirstName}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Surname"
         value={surname}
         onChangeText={setSurname}
       />
-
       <TextInput
         style={styles.input}
-        placeholder="Phone Number"
-        keyboardType="phone-pad"
+        placeholder="Phone"
         value={phone}
+        keyboardType="phone-pad"
         onChangeText={setPhone}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -96,7 +105,6 @@ export default function Signup() {
         value={email}
         onChangeText={setEmail}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Password"
@@ -104,7 +112,6 @@ export default function Signup() {
         value={password}
         onChangeText={setPassword}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Confirm Password"
@@ -113,35 +120,12 @@ export default function Signup() {
         onChangeText={setConfirmPassword}
       />
 
-      <Text style={styles.label}>Choose role:</Text>
-      <View style={styles.roleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.roleButton,
-            role === 'epilepsy' && styles.roleButtonSelected,
-          ]}
-          onPress={() => setRole('epilepsy')}
-        >
-          <Text style={styles.roleText}>Individual with Epilepsy</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.roleButton,
-            role === 'support' && styles.roleButtonSelected,
-          ]}
-          onPress={() => setRole('support')}
-        >
-          <Text style={styles.roleText}>Support Member</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleSignup}>
-        <Text style={styles.submitButtonText}>Sign Up</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup}>
+        <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/login')}>
-        <Text style={styles.linkText}>Already have an account? Log in</Text>
+        <Text style={styles.linkText}>Already have an account? Sign in</Text>
       </TouchableOpacity>
     </View>
   );
@@ -150,62 +134,41 @@ export default function Signup() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: '#F4F7F9',
+    paddingHorizontal: 30,
     justifyContent: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    textAlign: 'center',
+    color: '#2E3A59',
     marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
-    borderWidth: 1,
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
     borderColor: '#ddd',
-    padding: 12,
+    borderWidth: 1,
+  },
+  button: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 14,
     borderRadius: 8,
     marginBottom: 10,
   },
-  label: {
-    fontSize: 16,
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
     fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  roleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  roleButton: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#aaa',
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  roleButtonSelected: {
-    backgroundColor: 'lightblue',
-  },
-  roleText: {
-    color: 'black',
-    textAlign: 'center',
-  },
-  submitButton: {
-    backgroundColor: '#10B981',
-    padding: 14,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  submitButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: 'bold',
+    fontSize: 16,
   },
   linkText: {
     color: '#4F46E5',
     textAlign: 'center',
-    marginTop: 15,
+    marginTop: 10,
   },
 });
