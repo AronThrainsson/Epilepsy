@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -12,8 +13,13 @@ public class User {
     private String email;
     private String password;
 
+    @Column(name = "first_name")
     private String firstName;
+
+    @Column(name = "surname")
     private String surname;
+
+    @Column(name = "phone")
     private String phone;
 
     @Enumerated(EnumType.STRING)
