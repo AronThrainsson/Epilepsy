@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { BASE_URL } from '../config';
 import {
   View,
   Text,
@@ -9,6 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BASE_URL } from '../config';
+import { registerForPushNotificationsAsync } from './services/notificationService';
 
 export default function Signup() {
   const router = useRouter();
@@ -19,10 +20,10 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('epilepsy');
+  const [role, setRole] = useState('epilepsy'); // "epilepsy" or "support"
 
   const handleSignup = async () => {
-    if (!email || !password || !firstName || !surname || !phone || !confirmPassword) {
+    if (!firstName || !surname || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Please fill in all fields');
       return;
     }
@@ -35,9 +36,7 @@ export default function Signup() {
     try {
       const response = await fetch(`${BASE_URL}/api/auth/signup`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firstName,
           surname,
@@ -51,14 +50,27 @@ export default function Signup() {
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert('✅ Signup successful');
+        console.log('✅ Signup success');
+
+        // Register push token
+        const pushToken = await registerForPushNotificationsAsync();
+
+        if (pushToken) {
+          await fetch(`${BASE_URL}/api/user/push-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pushToken }),
+          });
+        }
+
+        Alert.alert('Account created. Please log in.');
         router.replace('/login');
       } else {
-        Alert.alert('❌ Signup failed', data.message || 'Something went wrong');
+        Alert.alert('Signup failed', data.message || 'Something went wrong');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('❌ Signup failed', 'Unable to reach the server');
+      Alert.alert('Signup error', 'Could not connect to the server');
     }
   };
 
@@ -72,22 +84,19 @@ export default function Signup() {
         value={firstName}
         onChangeText={setFirstName}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Surname"
         value={surname}
         onChangeText={setSurname}
       />
-
       <TextInput
         style={styles.input}
-        placeholder="Phone Number"
-        keyboardType="phone-pad"
+        placeholder="Phone"
         value={phone}
+        keyboardType="phone-pad"
         onChangeText={setPhone}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -96,7 +105,6 @@ export default function Signup() {
         value={email}
         onChangeText={setEmail}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Password"
@@ -104,7 +112,6 @@ export default function Signup() {
         value={password}
         onChangeText={setPassword}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Confirm Password"
@@ -112,7 +119,6 @@ export default function Signup() {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
       />
-
       <Text style={styles.label}>Choose role:</Text>
       <View style={styles.roleContainer}>
         <TouchableOpacity
@@ -136,12 +142,12 @@ export default function Signup() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSignup}>
-        <Text style={styles.submitButtonText}>Sign Up</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup}>
+        <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/login')}>
-        <Text style={styles.linkText}>Already have an account? Log in</Text>
+        <Text style={styles.linkText}>Already have an account? Sign in</Text>
       </TouchableOpacity>
     </View>
   );
@@ -207,5 +213,31 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     textAlign: 'center',
     marginTop: 15,
+  },
+
+  button: {
+    backgroundColor: '#4F46E5',        // Indigo
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  linkText: {
+    color: '#4F46E5',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
