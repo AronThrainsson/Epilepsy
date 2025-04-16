@@ -119,6 +119,28 @@ export default function Signup() {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
       />
+      <Text style={styles.label}>Choose role:</Text>
+      <View style={styles.roleContainer}>
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            role === 'epilepsy' && styles.roleButtonSelected,
+          ]}
+          onPress={() => setRole('epilepsy')}
+        >
+          <Text style={styles.roleText}>Individual with Epilepsy</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            role === 'support' && styles.roleButtonSelected,
+          ]}
+          onPress={() => setRole('support')}
+        >
+          <Text style={styles.roleText}>Support Member</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
@@ -134,41 +156,88 @@ export default function Signup() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7F9',
-    paddingHorizontal: 30,
+    padding: 20,
     justifyContent: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2E3A59',
-    marginBottom: 20,
     textAlign: 'center',
+    marginBottom: 20,
   },
   input: {
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 15,
-    fontSize: 16,
-    borderColor: '#ddd',
     borderWidth: 1,
-  },
-  button: {
-    backgroundColor: '#4F46E5',
-    paddingVertical: 14,
+    borderColor: '#ddd',
+    padding: 12,
     borderRadius: 8,
     marginBottom: 10,
   },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: '600',
+  label: {
     fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  roleButton: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#aaa',
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  roleButtonSelected: {
+    backgroundColor: 'lightblue',
+  },
+  roleText: {
+    color: 'black',
+    textAlign: 'center',
+  },
+  submitButton: {
+    backgroundColor: '#10B981',
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  submitButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   linkText: {
     color: '#4F46E5',
     textAlign: 'center',
+    marginTop: 15,
+  },
+
+  button: {
+    backgroundColor: '#4F46E5',        // Indigo
+    paddingVertical: 14,
+    borderRadius: 8,
     marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  linkText: {
+    color: '#4F46E5',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
