@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { useRouter } from 'expo-router';
 import { BASE_URL } from '../config';
 import { registerForPushNotificationsAsync } from './services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Login() {
   const router = useRouter();
@@ -27,7 +28,11 @@ export default function Login() {
       if (response.ok) {
         const role = data.role?.toLowerCase();
 
-        // Get push token
+        // Store user info locally
+        await AsyncStorage.setItem('userEmail', email);
+        await AsyncStorage.setItem('userRole', role);
+
+        // Register push token
         const pushToken = await registerForPushNotificationsAsync();
 
         if (pushToken) {
