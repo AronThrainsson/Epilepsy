@@ -8,6 +8,7 @@ import com.awsomeproject.epilepsy.repository.UserSupportRelationRepository;
 import com.awsomeproject.epilepsy.services.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,9 @@ public class NotificationController {
         boolean exists = relationRepository.existsByEpilepsyUserAndSupportUser(epilepsyUser, supportUser);
         if (!exists) {
             UserSupportRelation relation = new UserSupportRelation(epilepsyUser, supportUser);
+
+            relation.setId(UUID.randomUUID().toString());
+
             relationRepository.save(relation);
         }
 

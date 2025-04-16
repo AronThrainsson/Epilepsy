@@ -3,12 +3,14 @@ package com.awsomeproject.epilepsy.models;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "user_support_relation")
+@Table(
+        name = "user_support_relation",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"epilepsy_user_id", "support_user_id"})
+)
 public class UserSupportRelation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id; // Removed @GeneratedValue
 
     @ManyToOne
     @JoinColumn(name = "epilepsy_user_id")
@@ -25,15 +27,25 @@ public class UserSupportRelation {
         this.supportUser = supportUser;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
+
+    public void setId(String id) { this.id = id; }
 
     public User getEpilepsyUser() {
         return epilepsyUser;
     }
 
+    public void setEpilepsyUser(User epilepsyUser) {
+        this.epilepsyUser = epilepsyUser;
+    }
+
     public User getSupportUser() {
         return supportUser;
+    }
+
+    public void setSupportUser(User supportUser) {
+        this.supportUser = supportUser;
     }
 }
