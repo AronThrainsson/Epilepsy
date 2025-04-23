@@ -40,36 +40,9 @@ export default function EpilepsyLayout() {
       <Tabs.Screen
         name="screens/support"
         options={{
-          title: 'Support',
+          title: 'Mates',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="screens/info"
-        options={{
-          title: 'Info',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="information-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="screens/watch"
-        options={{
-          title: 'Smartwatch',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bluetooth-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="screens/gps"
-        options={{
-          title: 'GPS',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="location-outline" size={size} color={color} />
           ),
         }}
       />
