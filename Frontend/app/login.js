@@ -46,7 +46,7 @@ export default function Login() {
         if (role === 'epilepsy') {
           router.replace('/epilepsy/screens');
         } else if (role === 'support') {
-          router.replace('/support/support');
+          router.replace('/support/screens/home');
         } else {
           Alert.alert('Unknown role:', role);
         }
