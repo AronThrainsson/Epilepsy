@@ -1,8 +1,14 @@
 {
-    "build": {
-      "development": {
-        "developmentClient": true,
-        "distribution": "internal"
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
       }
     }
+  },
+  "cli": {
+    "appVersionSource": "local"
   }
+}
