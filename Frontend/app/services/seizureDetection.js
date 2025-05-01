@@ -1,6 +1,6 @@
 import { NativeModules, NativeEventEmitter } from 'react-native';
 import { sendPushNotification } from './notificationService';
-import SQLite from 'react-native-sqlite-storage';
+import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
 import { saveSeizureToDB } from '../../saveSeizureToDB';
 
