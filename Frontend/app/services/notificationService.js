@@ -1,7 +1,10 @@
 // notificationService.js
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import * as Location from 'expo-location';
+import { Route } from 'expo-router';
+import { Platform, Alert } from 'react-native';
+import { BASE_URL } from '../../config';
 
 export async function registerForPushNotificationsAsync() {
   let token;
@@ -16,7 +19,7 @@ export async function registerForPushNotificationsAsync() {
     }
 
     if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
+      Alert.alert('Failed to get push token for push notification!');
       return;
     }
 
@@ -24,15 +27,56 @@ export async function registerForPushNotificationsAsync() {
     token = tokenData.data;
     console.log('📲 Expo Push Token:', token);
   } else {
-    alert('Must use physical device for Push Notifications');
+    Alert.alert('Must use physical device for Push Notifications');
   }
 
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
+    await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
     });
   }
 
   return token;
+}
+
+export async function triggerSeizureAlert(epilepsyUserEmail) {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Location permission denied', 'Cannot send seizure location.');
+      return;
+    }
+
+    const location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
+
+    const response = await fetch(`${BASE_URL}/api/seizure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        epilepsyUserEmail,
+        latitude,
+        longitude,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to trigger seizure alert');
+    }
+
+    console.log('🚨 Seizure alert sent with location:', latitude, longitude);
+  } catch (error) {
+    console.error('Error triggering seizure alert:', error);
+    Alert.alert('Error', 'Failed to trigger seizure alert');
+  }
+}
+export function setupNotificationListeners() {
+  Notifications.addNotificationResponseReceivedListener(response => {
+    const data = response.notification.request.content.data;
+    const { latitude, longitude } = data;
+    if (data?.navigateTo == 'gps') {
+      router.replace('/support/screens/gps');
+    }
+  });
 }
