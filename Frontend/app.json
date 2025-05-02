@@ -7,29 +7,33 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "sdkVersion": "53.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.EpimateFix"
+    "plugins": [
+      "expo-router"
+    ]
+  },
+  "ios": {
+    "supportsTablet": true,
+    "bundleIdentifier": "com.anonymous.EpimateFix"
+  },
+  "android": {
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/adaptive-icon.png",
+      "backgroundColor": "#ffffff"
     },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.anonymous.EpimateFix"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "064b8d31-ad92-4af8-836a-39dacbffefc1"
-      }
+    "package": "com.anonymous.EpimateFix"
+  },
+  "web": {
+    "favicon": "./assets/favicon.png"
+  },
+  "extra": {
+    "eas": {
+      "projectId": "064b8d31-ad92-4af8-836a-39dacbffefc1"
     }
   }
 }
