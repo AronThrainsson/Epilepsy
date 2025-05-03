@@ -1,11 +1,11 @@
 import { Slot } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
-import { setupNotificationListeners } from './services/notificationService'; // ✅ Correct path
+import { setupNotificationListeners } from './services/notificationService'; // ✅ Adjusted path
 
 export default function Layout() {
   useEffect(() => {
-    setupNotificationListeners(); // Sets up listener for notification taps
+    setupNotificationListeners(); // ✅ Listens on tap
   }, []);
 
   return (
