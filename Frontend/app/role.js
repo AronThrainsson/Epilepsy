@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -13,9 +14,21 @@ export default function RoleSelection() {
     setSelectedRole(role);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedRole) {
-      router.push({ pathname: '/signup', params: { role: selectedRole } });
+      try {
+        // Store role immediately in AsyncStorage
+        await AsyncStorage.setItem('userRole', selectedRole);
+
+        // Pass role to signup screen
+        router.push({
+          pathname: '/signup',
+          params: { role: selectedRole }
+        });
+      } catch (error) {
+        Alert.alert('Error', 'Failed to save role selection');
+        console.error('Role selection error:', error);
+      }
     }
   };
 

@@ -30,45 +30,59 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        const role = data.role?.toLowerCase();
+        // Get role from API response or fallback to stored role
+        const role = (data.role || await AsyncStorage.getItem('userRole') || 'epilepsy').toLowerCase();
 
-        // Store user info locally
-        await AsyncStorage.setItem('userEmail', email);
-        await AsyncStorage.setItem('userRole', role);
+        // Store user data
+        await AsyncStorage.multiSet([
+          ['userEmail', email],
+          ['userRole', role],
+          ['authToken', data.token || '']
+        ]);
 
-        // Store credentials if remember me is checked
+        // Remember me functionality
         if (rememberMe) {
-          await AsyncStorage.setItem('rememberedEmail', email);
-          await AsyncStorage.setItem('rememberedPassword', password);
+          await AsyncStorage.multiSet([
+            ['rememberedEmail', email],
+            ['rememberedPassword', password]
+          ]);
         } else {
-          await AsyncStorage.removeItem('rememberedEmail');
-          await AsyncStorage.removeItem('rememberedPassword');
+          await AsyncStorage.multiRemove(['rememberedEmail', 'rememberedPassword']);
         }
 
-        // Register push token
-        const pushToken = await registerForPushNotificationsAsync();
-
-        if (pushToken) {
-          await fetch(`${BASE_URL}/api/user/push-token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, pushToken }),
-          });
+        // Register push notifications
+        try {
+          const pushToken = await registerForPushNotificationsAsync();
+          if (pushToken) {
+            await fetch(`${BASE_URL}/api/user/push-token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${data.token || ''}`
+              },
+              body: JSON.stringify({ email, pushToken }),
+            });
+          }
+        } catch (pushError) {
+          console.warn('Push notification error:', pushError);
         }
 
+        // Navigate based on role - using absolute paths
         if (role === 'epilepsy') {
-          router.replace('/epilepsy/screens');
+          router.replace('epilepsy');
         } else if (role === 'support') {
-          router.replace('/support/support');
+          router.replace('support');
         } else {
-          Alert.alert('Unknown role:', role);
+          Alert.alert('Unknown Role', 'Please contact support');
+          console.warn('Unknown role detected:', role);
         }
+
       } else {
-        Alert.alert('Login failed', data.message || 'Invalid credentials');
+        Alert.alert('Login Failed', data.message || 'Invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Login error', 'Something went wrong. Please try again.');
+      Alert.alert('Error', error.message || 'Login failed. Please try again.');
     }
   };
 
@@ -118,7 +132,7 @@ export default function Login() {
         </View>
 
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Sign In</Text>
+          <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/signup')}>

@@ -1,20 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BASE_URL } from '../config';
 import { registerForPushNotificationsAsync } from './services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Signup() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [role, setRole] = useState(params?.role || 'epilepsy');
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    const getStoredRole = async () => {
+      try {
+        const storedRole = await AsyncStorage.getItem('userRole');
+        if (storedRole) setRole(storedRole);
+      } catch (error) {
+        console.error('Error retrieving role:', error);
+      }
+    };
+    getStoredRole();
+  }, []);
 
   const handleSignup = async () => {
     if (!firstName || !surname || !phone || !email || !password || !confirmPassword) {
@@ -37,48 +52,58 @@ export default function Signup() {
           phone,
           email,
           password,
-          role: router.params?.role || 'epilepsy', // Get role from navigation params
+          role
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        console.log('✅ Signup success');
-        const pushToken = await registerForPushNotificationsAsync();
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
+      }
 
+      // Store user data
+      await AsyncStorage.multiSet([
+        ['userEmail', email],
+        ['userRole', role],
+        ['authToken', data.token || '']
+      ]);
+
+      // Register for push notifications
+      try {
+        const pushToken = await registerForPushNotificationsAsync();
         if (pushToken) {
           await fetch(`${BASE_URL}/api/user/push-token`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.token || ''}`
+            },
             body: JSON.stringify({ email, pushToken }),
           });
         }
-
-        // Get the role from params or default to epilepsy
-        const role = router.params?.role || 'epilepsy';
-
-        // Redirect based on role
-        if (role === 'epilepsy') {
-          router.replace('/epilepsy/screens');
-        } else if (role === 'support') {
-          router.replace('/support/support');
-        }
-
-        Alert.alert('Account created successfully!');
-      } else {
-        Alert.alert('Signup failed', data.message || 'Something went wrong');
+      } catch (pushError) {
+        console.warn('Push notification registration failed:', pushError);
       }
+
+      // Navigate based on role
+      if (role === 'epilepsy') {
+        router.replace('epilepsy');
+      } else {
+        router.replace('support');
+      }
+
+      Alert.alert('Success', 'Account created successfully!');
+
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('Signup error', 'Could not connect to the server');
+      Alert.alert('Signup Error', error.message || 'Could not create account');
     }
   };
 
   return (
     <View style={styles.background}>
       <View style={styles.container}>
-        {/* Back arrow at top left - goes back to role selection */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.push('/role')}

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
 import { Slot, useRouter, usePathname } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function Layout({ children }) {
+export default function Layout() {
+  const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuItem, setActiveMenuItem] = useState(null);
-  const [setActiveTab] = useState('home');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -21,7 +22,6 @@ export default function Layout({ children }) {
 
   const activeTab = useMemo(() => {
     if (pathname.includes('/epilepsy/log')) return 'log';
-    if (pathname.includes('/epilepsy/info')) return 'info';
     if (pathname.includes('/epilepsy/medicine')) return 'medicine';
     if (pathname.includes('/epilepsy/mates')) return 'mates';
     if (pathname === '/epilepsy') return 'home';
@@ -33,7 +33,6 @@ export default function Layout({ children }) {
     if (tab === 'medicine') router.push('/epilepsy/medicine');
     if (tab === 'log') router.push('/epilepsy/log');
     if (tab === 'mates') router.push('/epilepsy/mates');
-    if (tab === 'info') router.push('/epilepsy/info');
   };
 
   const handleMenuItemPress = (item) => {
@@ -41,11 +40,10 @@ export default function Layout({ children }) {
     setMenuOpen(false);
     if (item === 'Profile') router.push('/epilepsy/profile');
     if (item === 'Location') router.push('/epilepsy/gps');
-    if (item === 'Info') router.push('/epilepsy/info');
   };
 
   useEffect(() => {
-    if (!pathname.includes('/profile') && !pathname.includes('/gps') && !pathname.includes('/epilepsy/info')) {
+    if (!pathname.includes('/profile') && !pathname.includes('/gps')) {
       setActiveMenuItem(null);
     }
   }, [pathname]);
@@ -55,104 +53,106 @@ export default function Layout({ children }) {
   }, [pathname]);
 
   return (
-    <View style={styles.container}>
-      {/* Overlay when menu is open */}
-      {menuOpen && (
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setMenuOpen(false)}
-        />
-      )}
+    <SafeAreaView style={{ flex: 1, paddingTop: insets.top }}>
+      <View style={styles.container}>
+        {/* Overlay */}
+        {menuOpen && (
+          <TouchableOpacity
+            style={styles.overlay}
+            activeOpacity={1}
+            onPress={() => setMenuOpen(false)}
+          />
+        )}
 
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: COLORS.white }]}>
-        <View style={styles.headerContent}>
-          <Image source={require('../../assets/elogo.png')} style={styles.logo} />
-          <Text style={[styles.headerTitle, { color: COLORS.black }]}>Epimate</Text>
-          <TouchableOpacity onPress={() => setMenuOpen(!menuOpen)} style={styles.menuButton}>
-            <Ionicons name="menu" size={32} color={COLORS.black} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Dropdown Menu */}
-      {menuOpen && (
-        <View style={[styles.dropdownMenu, { backgroundColor: COLORS.white }]}>
-          {['Profile', 'Location', 'Info'].map((item) => (
-            <TouchableOpacity
-              key={item}
-              style={[
-                styles.menuItem,
-                activeMenuItem === item && { backgroundColor: '#E9CBFF' },
-              ]}
-              onPress={() => handleMenuItemPress(item)}
-            >
-              <Text style={styles.menuItemText}>{item}</Text>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: COLORS.white }]}>
+          <View style={styles.headerContent}>
+            <Image source={require('../../assets/elogo.png')} style={styles.logo} />
+            <Text style={[styles.headerTitle, { color: COLORS.black }]}>Epimate</Text>
+            <TouchableOpacity onPress={() => setMenuOpen(!menuOpen)} style={styles.menuButton}>
+              <Ionicons name="menu" size={32} color={COLORS.black} />
             </TouchableOpacity>
-          ))}
+          </View>
         </View>
-      )}
 
-      {/* Content */}
-      <View style={styles.content}>
-        <Slot />
-      </View>
+        {/* Dropdown Menu */}
+        {menuOpen && (
+          <View style={[styles.dropdownMenu, { backgroundColor: COLORS.white }]}>
+            {['Profile', 'Location'].map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={[
+                  styles.menuItem,
+                  activeMenuItem === item && { backgroundColor: '#E9CBFF' },
+                ]}
+                onPress={() => handleMenuItemPress(item)}
+              >
+                <Text style={styles.menuItemText}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
-      {/* Footer */}
-      <View style={[styles.footer, { backgroundColor: COLORS.white }]}>
-        <View style={styles.footerContent}>
-          <FooterButton
-            icon={(active) => (
-              <Ionicons
-                name={active ? 'home' : 'home-outline'}
-                size={25}
-                color={active ? COLORS.primary : COLORS.black}
-              />
-            )}
-            label="HOME"
-            active={activeTab === 'home'}
-            onPress={() => handleTabPress('home')}
-          />
-          <FooterButton
-            icon={(active) => (
-              <Ionicons
-                name={active ? 'medkit' : 'medkit'}
-                size={25}
-                color={active ? COLORS.primary : COLORS.black}
-              />
-            )}
-            label="MEDICINE"
-            active={activeTab === 'medicine'}
-            onPress={() => handleTabPress('medicine')}
-          />
-          <FooterButton
-            icon={(active) => (
-              <FontAwesome
-                name="book"
-                size={25}
-                color={active ? COLORS.primary : COLORS.black}
-              />
-            )}
-            label="LOG"
-            active={activeTab === 'log'}
-            onPress={() => handleTabPress('log')}
-          />
-          <FooterButton
-            icon={(active) => (
-              <Ionicons
-                name={active ? 'people' : 'people-outline'}
-                size={28}
-                color={active ? COLORS.primary : COLORS.black}
-              />
-            )}
-            label="MATES"
-            active={activeTab === 'mates'}
-            onPress={() => handleTabPress('mates')}
-          />
+        {/* Content */}
+        <View style={styles.content}>
+          <Slot />
+        </View>
+
+        {/* Footer */}
+        <View style={[styles.footer, { backgroundColor: COLORS.white }]}>
+          <View style={styles.footerContent}>
+            <FooterButton
+              icon={(active) => (
+                <Ionicons
+                  name={active ? 'home' : 'home-outline'}
+                  size={25}
+                  color={active ? COLORS.primary : COLORS.black}
+                />
+              )}
+              label="HOME"
+              active={activeTab === 'home'}
+              onPress={() => handleTabPress('home')}
+            />
+            <FooterButton
+              icon={(active) => (
+                <Ionicons
+                  name="medkit"
+                  size={25}
+                  color={active ? COLORS.primary : COLORS.black}
+                />
+              )}
+              label="MEDICINE"
+              active={activeTab === 'medicine'}
+              onPress={() => handleTabPress('medicine')}
+            />
+            <FooterButton
+              icon={(active) => (
+                <FontAwesome
+                  name="book"
+                  size={25}
+                  color={active ? COLORS.primary : COLORS.black}
+                />
+              )}
+              label="LOG"
+              active={activeTab === 'log'}
+              onPress={() => handleTabPress('log')}
+            />
+            <FooterButton
+              icon={(active) => (
+                <Ionicons
+                  name={active ? 'people' : 'people-outline'}
+                  size={28}
+                  color={active ? COLORS.primary : COLORS.black}
+                />
+              )}
+              label="MATES"
+              active={activeTab === 'mates'}
+              onPress={() => handleTabPress('mates')}
+            />
+          </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -177,8 +177,6 @@ const styles = StyleSheet.create({
     height: 55,
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
     zIndex: 10,
   },
   headerContent: {
