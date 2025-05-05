@@ -4,36 +4,35 @@
     "slug": "EpimateFix",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/elogo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "sdkVersion": "53.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "plugins": [
-      "expo-router"
-    ]
-  },
-  "ios": {
-    "supportsTablet": true,
-    "bundleIdentifier": "com.anonymous.EpimateFix"
-  },
-  "android": {
-    "adaptiveIcon": {
-      "foregroundImage": "./assets/adaptive-icon.png",
-      "backgroundColor": "#ffffff"
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.EpimateFix"
     },
-    "package": "com.anonymous.EpimateFix"
-  },
-  "web": {
-    "favicon": "./assets/favicon.png"
-  },
-  "extra": {
-    "eas": {
-      "projectId": "064b8d31-ad92-4af8-836a-39dacbffefc1"
-    }
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.EpimateFix"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "064b8d31-ad92-4af8-836a-39dacbffefc1"
+      }
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
   }
 }

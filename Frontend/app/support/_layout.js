@@ -5,7 +5,7 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function Layout({ children }) {
+export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuItem, setActiveMenuItem] = useState(null);
   const [setActiveTab] = useState('home');
@@ -20,32 +20,27 @@ export default function Layout({ children }) {
   };
 
   const activeTab = useMemo(() => {
-    if (pathname.includes('/epilepsy/log')) return 'log';
-    if (pathname.includes('/epilepsy/info')) return 'info';
-    if (pathname.includes('/epilepsy/medicine')) return 'medicine';
-    if (pathname.includes('/epilepsy/mates')) return 'mates';
-    if (pathname === '/epilepsy') return 'home';
-    return null;
-  }, [pathname]);
+      if (pathname.includes('/support/log')) return 'log';
+      if (pathname.includes('/support/info')) return 'info';
+      if (pathname === '/support') return 'home';
+      return null;
+    }, [pathname]);
 
   const handleTabPress = (tab) => {
-    if (tab === 'home') router.push('/epilepsy');
-    if (tab === 'medicine') router.push('/epilepsy/medicine');
-    if (tab === 'log') router.push('/epilepsy/log');
-    if (tab === 'mates') router.push('/epilepsy/mates');
-    if (tab === 'info') router.push('/epilepsy/info');
+    if (tab === 'home') router.push('/support');
+    if (tab === 'log') router.push('/support/log');
+    if (tab === 'info') router.push('/support/info');
   };
 
   const handleMenuItemPress = (item) => {
     setActiveMenuItem(item);
     setMenuOpen(false);
-    if (item === 'Profile') router.push('/epilepsy/profile');
-    if (item === 'Location') router.push('/epilepsy/gps');
-    if (item === 'Info') router.push('/epilepsy/info');
+    if (item === 'Profile') router.push('/support/profile');
+    if (item === 'Location') router.push('/support/gps');
   };
 
   useEffect(() => {
-    if (!pathname.includes('/profile') && !pathname.includes('/gps') && !pathname.includes('/epilepsy/info')) {
+    if (!pathname.includes('/profile') && !pathname.includes('/gps')) {
       setActiveMenuItem(null);
     }
   }, [pathname]);
@@ -79,7 +74,7 @@ export default function Layout({ children }) {
       {/* Dropdown Menu */}
       {menuOpen && (
         <View style={[styles.dropdownMenu, { backgroundColor: COLORS.white }]}>
-          {['Profile', 'Location', 'Info'].map((item) => (
+          {['Profile', 'Location'].map((item) => (
             <TouchableOpacity
               key={item}
               style={[
@@ -116,18 +111,6 @@ export default function Layout({ children }) {
           />
           <FooterButton
             icon={(active) => (
-              <Ionicons
-                name={active ? 'medkit' : 'medkit'}
-                size={25}
-                color={active ? COLORS.primary : COLORS.black}
-              />
-            )}
-            label="MEDICINE"
-            active={activeTab === 'medicine'}
-            onPress={() => handleTabPress('medicine')}
-          />
-          <FooterButton
-            icon={(active) => (
               <FontAwesome
                 name="book"
                 size={25}
@@ -141,14 +124,14 @@ export default function Layout({ children }) {
           <FooterButton
             icon={(active) => (
               <Ionicons
-                name={active ? 'people' : 'people-outline'}
+                name={active ? 'information-circle' : 'information-circle-outline'}
                 size={28}
                 color={active ? COLORS.primary : COLORS.black}
               />
             )}
-            label="MATES"
-            active={activeTab === 'mates'}
-            onPress={() => handleTabPress('mates')}
+            label="INFO"
+            active={activeTab === 'info'}
+            onPress={() => handleTabPress('info')}
           />
         </View>
       </View>
@@ -221,7 +204,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 5,
     zIndex: 100,
-    width: 200,
+    width: 180,
     paddingVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

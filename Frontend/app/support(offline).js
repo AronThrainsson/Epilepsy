@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { BASE_URL } from '../../../config';
+import { BASE_URL } from '../config';
 
 export default function SupportScreen() {
   const [supportUsers, setSupportUsers] = useState([]);

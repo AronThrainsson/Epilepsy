@@ -1,9 +1,9 @@
 import { View, Text } from 'react-native';
 
-export default function MedicationScreen() {
+export default function Mates() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Medication Screen</Text>
+      <Text>Mates</Text>
     </View>
   );
 }
