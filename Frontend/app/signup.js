@@ -1,26 +1,35 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BASE_URL } from '../config';
 import { registerForPushNotificationsAsync } from './services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Signup() {
   const router = useRouter();
-
+  const params = useLocalSearchParams();
+  const [role, setRole] = useState(params?.role || 'epilepsy');
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('epilepsy'); // "epilepsy" or "support"
+
+  useEffect(() => {
+    const getStoredRole = async () => {
+      try {
+        const storedRole = await AsyncStorage.getItem('userRole');
+        if (storedRole) setRole(storedRole);
+      } catch (error) {
+        console.error('Error retrieving role:', error);
+      }
+    };
+    getStoredRole();
+  }, []);
 
   const handleSignup = async () => {
     if (!firstName || !surname || !phone || !email || !password || !confirmPassword) {
@@ -43,183 +52,166 @@ export default function Signup() {
           phone,
           email,
           password,
-          role,
+          role
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        console.log('✅ Signup success');
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed');
+      }
 
-        // Register push token
+      // Store user data
+      await AsyncStorage.multiSet([
+        ['userEmail', email],
+        ['userRole', role],
+        ['authToken', data.token || '']
+      ]);
+
+      // Register for push notifications
+      try {
         const pushToken = await registerForPushNotificationsAsync();
-
         if (pushToken) {
           await fetch(`${BASE_URL}/api/user/push-token`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.token || ''}`
+            },
             body: JSON.stringify({ email, pushToken }),
           });
         }
-
-        Alert.alert('Account created. Please log in.');
-        router.replace('/login');
-      } else {
-        Alert.alert('Signup failed', data.message || 'Something went wrong');
+      } catch (pushError) {
+        console.warn('Push notification registration failed:', pushError);
       }
+
+      // Navigate based on role
+      if (role === 'epilepsy') {
+        router.replace('epilepsy');
+      } else {
+        router.replace('support');
+      }
+
+      Alert.alert('Success', 'Account created successfully!');
+
     } catch (error) {
       console.error('Signup error:', error);
-      Alert.alert('Signup error', 'Could not connect to the server');
+      Alert.alert('Signup Error', error.message || 'Could not create account');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="First Name"
-        value={firstName}
-        onChangeText={setFirstName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Surname"
-        value={surname}
-        onChangeText={setSurname}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Phone"
-        value={phone}
-        keyboardType="phone-pad"
-        onChangeText={setPhone}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
-      <Text style={styles.label}>Choose role:</Text>
-      <View style={styles.roleContainer}>
+    <View style={styles.background}>
+      <View style={styles.container}>
         <TouchableOpacity
-          style={[
-            styles.roleButton,
-            role === 'epilepsy' && styles.roleButtonSelected,
-          ]}
-          onPress={() => setRole('epilepsy')}
+          style={styles.backButton}
+          onPress={() => router.push('/role')}
         >
-          <Text style={styles.roleText}>Individual with Epilepsy</Text>
+          <Ionicons name="arrow-back" size={24} color="#4F46E5" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.roleButton,
-            role === 'support' && styles.roleButtonSelected,
-          ]}
-          onPress={() => setRole('support')}
-        >
-          <Text style={styles.roleText}>Support Member</Text>
+        <Text style={styles.title}>Create Account</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="First Name"
+          value={firstName}
+          onChangeText={setFirstName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Surname"
+          value={surname}
+          onChangeText={setSurname}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Phone"
+          value={phone}
+          keyboardType="phone-pad"
+          onChangeText={setPhone}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+
+        <TouchableOpacity style={styles.button} onPress={handleSignup}>
+          <Text style={styles.buttonText}>Sign Up</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/login')}>
+          <Text style={styles.linkText}>Already have an account? Log in</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.button} onPress={handleSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => router.push('/login')}>
-        <Text style={styles.linkText}>Already have an account? Sign in</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    position: 'absolute',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    backgroundColor: '#F9F0FF',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   container: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 30,
     justifyContent: 'center',
+    marginTop: 60,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    left: 30,
+    zIndex: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#2E3A59',
+    marginBottom: 50,
     textAlign: 'center',
-    marginBottom: 20,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  roleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  roleButton: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#aaa',
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  roleButtonSelected: {
-    backgroundColor: 'lightblue',
-  },
-  roleText: {
-    color: 'black',
-    textAlign: 'center',
-  },
-  submitButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#fff',
     padding: 14,
-    borderRadius: 10,
-    marginTop: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
+    borderColor: '#ddd',
+    borderWidth: 1,
   },
-  submitButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  linkText: {
-    color: '#4F46E5',
-    textAlign: 'center',
-    marginTop: 15,
-  },
-
   button: {
-    backgroundColor: '#4F46E5',        // Indigo
+    backgroundColor: '#CB97F0',
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 90,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -227,16 +219,15 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonText: {
-    color: '#fff',
+    color: 'white',
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 16,
-    letterSpacing: 0.5,
   },
   linkText: {
     color: '#4F46E5',
     textAlign: 'center',
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 14,
     fontWeight: '500',
   },

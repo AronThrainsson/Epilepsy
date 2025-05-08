@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { BASE_URL } from '../../../config';
+import { BASE_URL } from '../../config';
 
 export default function SupportScreen() {
   const [supportUsers, setSupportUsers] = useState([]);
@@ -107,9 +107,17 @@ export default function SupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-  searchInput: {
+  container: {
+  flex: 1,
+  padding: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center'
+   },
+   searchInput: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
@@ -128,12 +136,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#dbeafe',
     borderColor: '#3b82f6',
   },
-  itemText: { fontSize: 16 },
+  itemText: {
+    fontSize: 16
+   },
   button: {
     backgroundColor: '#3b82f6',
     padding: 14,
     borderRadius: 8,
     marginTop: 10,
   },
-  buttonText: { color: '#fff', textAlign: 'center', fontSize: 16 },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 16 },
 });
