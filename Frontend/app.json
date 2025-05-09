@@ -3,6 +3,7 @@
     "name": "EpimateFix",
     "slug": "EpimateFix",
     "version": "1.0.0",
+    "scheme": "epimatefix",
     "orientation": "portrait",
     "icon": "./assets/elogo.png",
     "userInterfaceStyle": "light",

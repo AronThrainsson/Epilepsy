@@ -47,3 +47,11 @@ backend/mvnw.cmd
 # -----------------
 *.log
 .env
+
+# -----------------
+# Nodes in wrong folder
+# -----------------
+node_modules/
+.expo/
+maven/
+apache-maven.zip
