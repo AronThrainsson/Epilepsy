@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: 55,
     position: 'absolute',
-    top: 0,
+    top: 30,
     left: 0,
     right: 0,
     zIndex: 10,
