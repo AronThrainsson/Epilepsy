@@ -2,7 +2,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as Location from 'expo-location';
-import { Route } from 'expo-router';
+import { router } from 'expo-router';
 import { Platform, Alert } from 'react-native';
 import { BASE_URL } from '../../config';
 
@@ -74,9 +74,20 @@ export async function triggerSeizureAlert(epilepsyUserEmail) {
 export function setupNotificationListeners() {
   Notifications.addNotificationResponseReceivedListener(response => {
     const data = response.notification.request.content.data;
-    const { latitude, longitude } = data;
-    if (data?.navigateTo == 'gps') {
-      router.replace('/support/screens/gps');
+    const { latitude, longitude, navigateTo } = data;
+
+    if (navigateTo === 'gps') {
+      const lat = parseFloat(latitude);
+      const lon = parseFloat(longitude);
+
+      if (!isNaN(lat) && !isNaN(lon)) {
+        router.replace({
+          pathname: '/support/gps',
+          params: { latitude: lat, longitude: lon },
+        });
+      } else {
+        router.replace('/support/gps');
+      }
     }
   });
 }

@@ -8,10 +8,7 @@ import com.awsomeproject.epilepsy.repository.UserSupportRelationRepository;
 import com.awsomeproject.epilepsy.services.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.UUID;
-
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api")
@@ -74,8 +71,10 @@ public class NotificationController {
 
     // Trigger seizure notification to selected support users only
     @PostMapping("/seizure")
-    public ResponseEntity<?> sendSeizureAlert(@RequestBody Map<String, String> request) {
-        String epilepsyEmail = request.get("epilepsyUserEmail");
+    public ResponseEntity<?> sendSeizureAlert(@RequestBody Map<String, Object> request) {
+        String epilepsyEmail = (String) request.get("epilepsyUserEmail");
+        Double latitude = request.get("latitude") != null ? ((Number) request.get("latitude")).doubleValue() : null;
+        Double longitude = request.get("longitude") != null ? ((Number) request.get("longitude")).doubleValue() : null;
 
         User epilepsyUser = userRepository.findByEmail(epilepsyEmail).orElseThrow();
         List<UserSupportRelation> relations = relationRepository.findByEpilepsyUser(epilepsyUser);
@@ -83,10 +82,21 @@ public class NotificationController {
         for (UserSupportRelation relation : relations) {
             User supportUser = relation.getSupportUser();
             if (supportUser.getPushToken() != null) {
+                String title = "Seizure Alert!";
+                String body = epilepsyUser.getFirstName() + " might need help!";
+                Map<String, String> data = new HashMap<>();
+
+                data.put("navigateTo", "gps");
+                if (latitude != null && longitude != null) {
+                    data.put("latitude", String.valueOf(latitude));
+                    data.put("longitude", String.valueOf(longitude));
+                }
+
                 notificationService.sendPushNotification(
                         supportUser.getPushToken(),
-                        "Seizure Alert!",
-                        epilepsyUser.getFirstName() + " might need help!"
+                        title,
+                        body,
+                        data
                 );
             }
         }
