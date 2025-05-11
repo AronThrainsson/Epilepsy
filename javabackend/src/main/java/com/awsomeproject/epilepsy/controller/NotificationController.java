@@ -8,10 +8,14 @@ import com.awsomeproject.epilepsy.repository.UserRepository;
 import com.awsomeproject.epilepsy.repository.UserSupportRelationRepository;
 import com.awsomeproject.epilepsy.services.NotificationService;
 import com.awsomeproject.epilepsy.models.Seizure;
+import com.awsomeproject.epilepsy.models.SeizureDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.time.LocalDateTime;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -124,4 +128,31 @@ public ResponseEntity<?> sendSeizureAlert(@RequestBody Map<String, Object> reque
 
     return ResponseEntity.ok("Seizure logged and notification sent");
 }
+
+    // GET seizures for a given epilepsy user by email
+    @GetMapping("/seizures")
+    public ResponseEntity<List<SeizureDTO>> getSeizuresByEmail(@RequestParam String epilepsyUserEmail) {
+        User user = userRepository.findByEmail(epilepsyUserEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        List<SeizureDTO> seizures = seizureRepository.findByEpilepsyUser(user).stream()
+                .map(s -> new SeizureDTO(s.getId(), s.getHeartRate(), s.getSpO2(), s.getMovement(), s.getTimestamp()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(seizures);
+    }
+
+    //to be able to update the notes in seizures
+    @PatchMapping("/seizures/{id}/note")
+    public ResponseEntity<?> updateSeizureNote(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        String newNote = request.get("note");
+        Seizure seizure = seizureRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seizure not found"));
+
+        seizure.setNote(newNote);
+        seizureRepository.save(seizure);
+
+        return ResponseEntity.ok("Note updated");
+    }
+
 }

@@ -15,6 +15,9 @@ public class Seizure {
     private int movement;
     private LocalDateTime timestamp;
 
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
     @ManyToOne
     @JoinColumn(name = "epilepsy_user_id", nullable = false)
     private User epilepsyUser;
@@ -75,5 +78,13 @@ public class Seizure {
 
     public void setEpilepsyUser(User epilepsyUser) {
         this.epilepsyUser = epilepsyUser;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 }
