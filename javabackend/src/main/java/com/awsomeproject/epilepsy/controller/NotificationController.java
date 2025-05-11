@@ -136,7 +136,7 @@ public ResponseEntity<?> sendSeizureAlert(@RequestBody Map<String, Object> reque
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         List<SeizureDTO> seizures = seizureRepository.findByEpilepsyUser(user).stream()
-                .map(s -> new SeizureDTO(s.getId(), s.getHeartRate(), s.getSpO2(), s.getMovement(), s.getTimestamp()))
+                .map(s -> new SeizureDTO(s.getId(), s.getHeartRate(), s.getSpO2(), s.getMovement(), s.getTimestamp(), s.getNote()))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(seizures);

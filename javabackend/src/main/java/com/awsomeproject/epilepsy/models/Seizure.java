@@ -26,12 +26,13 @@ public class Seizure {
     public Seizure() {
     }
 
-    public Seizure(User epilepsyUser, double heartRate, double spO2, int movement, LocalDateTime timestamp) {
+    public Seizure(User epilepsyUser, double heartRate, double spO2, int movement, LocalDateTime timestamp, String note) {
         this.epilepsyUser = epilepsyUser;
         this.heartRate = heartRate;
         this.spO2 = spO2;
         this.movement = movement;
         this.timestamp = timestamp;
+        this.note = note;
     }
 
     // Getters and Setters

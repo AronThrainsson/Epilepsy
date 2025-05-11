@@ -98,9 +98,8 @@ const LogScreen = () => {
 
   const renderSeizureItem = ({ item }) => (
     <TouchableOpacity style={styles.seizureItem} onPress={() => handleSeizurePress(item)}>
-      <Text style={styles.seizureTime}>{item.time || 'Unknown time'}</Text>
-      <Text style={styles.seizureDuration}>{item.duration} min</Text>
-      <Text style={styles.seizureType}>{item.movement}</Text>
+      <Text style={styles.seizureTime}>Time: {item.time || 'Unknown time'}</Text>
+      <Feather name="chevron-right" size={20} color="#4F46E5" />
     </TouchableOpacity>
   );
 

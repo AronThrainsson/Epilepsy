@@ -9,13 +9,22 @@ public class SeizureDTO {
     private double spO2;
     private int movement;
     private LocalDateTime timestamp;
+    private String note;
 
-    public SeizureDTO(Long id, double heartRate, double spO2, int movement, LocalDateTime timestamp) {
+    public SeizureDTO(Long id, double heartRate, double spO2, int movement, LocalDateTime timestamp, String note) {
         this.id = id;
         this.heartRate = heartRate;
         this.spO2 = spO2;
         this.movement = movement;
         this.timestamp = timestamp;
+        this.note = note;
+    }
+
+    public String getNote() {
+        return note;
+    }
+    public void setNote(String note) {
+        this.note = note;
     }
 
     // Getters
