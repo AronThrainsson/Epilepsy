@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, Alert } from 'react-native';
 import { Slot, useRouter, usePathname } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,11 +21,11 @@ export default function Layout() {
   };
 
   const activeTab = useMemo(() => {
-      if (pathname.includes('/support/log')) return 'log';
-      if (pathname.includes('/support/info')) return 'info';
-      if (pathname === '/support') return 'home';
-      return null;
-    }, [pathname]);
+    if (pathname.includes('/support/log')) return 'log';
+    if (pathname.includes('/support/info')) return 'info';
+    if (pathname === '/support') return 'home';
+    return null;
+  }, [pathname]);
 
   const handleTabPress = (tab) => {
     if (tab === 'home') router.push('/support');
@@ -37,6 +38,32 @@ export default function Layout() {
     setMenuOpen(false);
     if (item === 'Profile') router.push('/support/profile');
     if (item === 'Location') router.push('/support/gps');
+    if (item === 'Logout') handleLogout();
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            try {
+              await AsyncStorage.clear();
+              router.replace('/login');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   useEffect(() => {
@@ -74,7 +101,7 @@ export default function Layout() {
       {/* Dropdown Menu */}
       {menuOpen && (
         <View style={[styles.dropdownMenu, { backgroundColor: COLORS.white }]}>
-          {['Profile', 'Location'].map((item) => (
+          {['Profile', 'Location', 'Logout'].map((item) => (
             <TouchableOpacity
               key={item}
               style={[
@@ -83,7 +110,12 @@ export default function Layout() {
               ]}
               onPress={() => handleMenuItemPress(item)}
             >
-              <Text style={styles.menuItemText}>{item}</Text>
+              <Text style={[styles.menuItemText, item === 'Logout' && { color: '#FF3B30' }]}>
+                {item}
+              </Text>
+              {item === 'Logout' && (
+                <Ionicons name="log-out-outline" size={20} color="#FF3B30" style={styles.logoutIcon} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -215,10 +247,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   menuItemText: {
     fontSize: 15,
     color: '#000',
+  },
+  logoutIcon: {
+    marginLeft: 10,
   },
   content: {
     flex: 1,

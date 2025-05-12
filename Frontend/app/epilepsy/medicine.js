@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,15 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Dimensions,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MedicationPage = () => {
-  const [medicines, setMedicines] = useState([
-    { id: '1', name: 'Epilex', dose: '200mg', time: '08:00' },
-    { id: '2', name: 'Keppra', dose: '500mg', time: '20:00' },
-  ]);
+  const [medicines, setMedicines] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
   const [name, setName] = useState('');
@@ -24,28 +23,86 @@ const MedicationPage = () => {
   const [time, setTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  // Load medications on mount
+  useEffect(() => {
+    const loadMedications = async () => {
+      try {
+        const savedMeds = await AsyncStorage.getItem('medications');
+        if (savedMeds) {
+          const parsedMeds = JSON.parse(savedMeds);
+          // Initialize with enabled: true if not present (for backward compatibility)
+          const medsWithToggle = parsedMeds.map(med => ({
+            ...med,
+            enabled: med.enabled !== undefined ? med.enabled : true
+          }));
+          setMedicines(medsWithToggle);
+
+          if (parsedMeds.length === 0) {
+            const defaultMeds = [
+              { id: '1', name: 'Epilex', dose: '200mg', time: '08:00', enabled: true },
+              { id: '2', name: 'Keppra', dose: '500mg', time: '20:00', enabled: true },
+            ];
+            setMedicines(defaultMeds);
+            await AsyncStorage.setItem('medications', JSON.stringify(defaultMeds));
+          }
+        } else {
+          const defaultMeds = [
+            { id: '1', name: 'Epilex', dose: '200mg', time: '08:00', enabled: true },
+            { id: '2', name: 'Keppra', dose: '500mg', time: '20:00', enabled: true },
+          ];
+          setMedicines(defaultMeds);
+          await AsyncStorage.setItem('medications', JSON.stringify(defaultMeds));
+        }
+      } catch (error) {
+        console.error('Failed to load medications', error);
+      }
+    };
+    loadMedications();
+  }, []);
+
+  // Save medications when they change
+  useEffect(() => {
+    const saveMedications = async () => {
+      try {
+        await AsyncStorage.setItem('medications', JSON.stringify(medicines));
+      } catch (error) {
+        console.error('Failed to save medications', error);
+      }
+    };
+    if (medicines.length > 0) {
+      saveMedications();
+    }
+  }, [medicines]);
+
   useEffect(() => {
     if (selectedMedicine) {
       setName(selectedMedicine.name);
       setDose(selectedMedicine.dose);
       const [hours, minutes] = selectedMedicine.time.split(':');
       const newTime = new Date();
-      newTime.setHours(parseInt(hours), parseInt(minutes));
+      newTime.setHours(parseInt(hours));
+      newTime.setMinutes(parseInt(minutes));
       setTime(newTime);
     } else {
       setName('');
       setDose('');
-      setTime(new Date());
+      const defaultTime = new Date();
+      defaultTime.setHours(8, 0);
+      setTime(defaultTime);
     }
   }, [selectedMedicine]);
 
-  const handleSave = () => {
-    const formattedTime = time.toTimeString().substring(0, 5);
+  const handleSave = async () => {
+    const hours = time.getHours().toString().padStart(2, '0');
+    const minutes = time.getMinutes().toString().padStart(2, '0');
+    const formattedTime = `${hours}:${minutes}`;
+
     const updatedMedicine = {
       id: selectedMedicine?.id || Date.now().toString(),
       name,
       dose,
-      time: formattedTime
+      time: formattedTime,
+      enabled: selectedMedicine?.enabled !== undefined ? selectedMedicine.enabled : true
     };
 
     if (selectedMedicine) {
@@ -63,6 +120,12 @@ const MedicationPage = () => {
     }
   };
 
+  const toggleMedication = (id) => {
+    setMedicines(medicines.map(med =>
+      med.id === id ? { ...med, enabled: !med.enabled } : med
+    ));
+  };
+
   const onTimeChange = (event, selectedTime) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selectedTime) {
@@ -74,7 +137,7 @@ const MedicationPage = () => {
     <View style={styles.container}>
       {/* Header and Medication List */}
       <View style={styles.header}>
-        <Text style={styles.title}>My Medications</Text>
+        <Text style={styles.title}>My medications</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
@@ -88,17 +151,30 @@ const MedicationPage = () => {
 
       <ScrollView style={styles.listContainer}>
         {medicines.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.medicineButton}
-            onPress={() => {
-              setSelectedMedicine(item);
-              setIsModalVisible(true);
-            }}
-          >
-            <Text style={styles.medicineName}>{item.name}</Text>
-            <Text style={styles.medicineDetails}>{item.dose} • {item.time}</Text>
-          </TouchableOpacity>
+          <View key={item.id} style={[
+            styles.medicineItemContainer,
+            !item.enabled && styles.disabledMedicine
+          ]}>
+            <TouchableOpacity
+              style={styles.medicineButton}
+              onPress={() => {
+                setSelectedMedicine(item);
+                setIsModalVisible(true);
+              }}
+            >
+              <View style={styles.medicineInfo}>
+                <Text style={styles.medicineName}>{item.name}</Text>
+                <Text style={styles.medicineDetails}>{item.dose} • {item.time}</Text>
+              </View>
+            </TouchableOpacity>
+            <Switch
+              value={item.enabled}
+              onValueChange={() => toggleMedication(item.id)}
+              trackColor={{ false: "#767577", true: "#32BF55" }}
+              thumbColor={item.enabled ? "#ffffff" : "#f4f3f4"}
+              ios_backgroundColor="#3e3e3e"
+            />
+          </View>
         ))}
       </ScrollView>
 
@@ -117,7 +193,7 @@ const MedicationPage = () => {
                   style={styles.deleteButton}
                   onPress={handleDelete}
                 >
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                  <Icon name="trash-can" size={24} color="#FF3B30" />
                 </TouchableOpacity>
               )}
               <Text style={styles.modalTitle}>
@@ -169,7 +245,7 @@ const MedicationPage = () => {
                 style={[styles.button, styles.cancelButton]}
                 onPress={() => setIsModalVisible(false)}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
+                <Text style={[styles.buttonText, { color: '#000' }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.saveButton]}
@@ -188,8 +264,10 @@ const MedicationPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff'
+    paddingLeft: 16,
+    paddingRight: 16,
+    top: -15,
+    marginBottom: -30,
   },
   header: {
     flexDirection: 'row',
@@ -198,32 +276,42 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold'
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#2E3A59',
+    marginBottom: 40,
   },
   addButton: {
-    backgroundColor: '#4F46E5',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 15,
   },
   addButtonText: {
-    color: 'white',
-    fontSize: 24,
-    lineHeight: 36
+    color: 'black',
+    fontSize: 40,
+    textAlign: 'center'
   },
   listContainer: {
     flex: 1
   },
-  medicineButton: {
+  medicineItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+  },
+  disabledMedicine: {
+    opacity: 0.6
+  },
+  medicineButton: {
+    flex: 1
+  },
+  medicineInfo: {
+    flex: 1
   },
   medicineName: {
     fontWeight: 'bold',
@@ -249,15 +337,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
-    justifyContent: 'center'
+    justifyContent: 'center',
+    position: 'relative'
   },
   deleteButton: {
     position: 'absolute',
     left: 0,
     padding: 10
-  },
-  deleteButtonText: {
-    fontSize: 20
   },
   modalTitle: {
     fontSize: 20,
@@ -296,7 +382,8 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10
+    marginTop: 10,
+    marginBottom: 10
   },
   button: {
     flex: 1,
@@ -310,7 +397,7 @@ const styles = StyleSheet.create({
     marginRight: 10
   },
   saveButton: {
-    backgroundColor: '#4F46E5'
+    backgroundColor: '#CB97F0'
   },
   buttonText: {
     color: 'white',

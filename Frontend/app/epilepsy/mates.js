@@ -55,9 +55,9 @@ export default function SupportScreen() {
           }),
         });
       }
-      Alert.alert('Support team updated!');
+      Alert.alert('Mates updated!');
     } catch (err) {
-      Alert.alert('Error saving support users');
+      Alert.alert('Error saving mates');
       console.error(err);
     }
   };
@@ -72,7 +72,7 @@ export default function SupportScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>My Support Team</Text>
+      <Text style={styles.title}>My mates</Text>
 
       <TextInput
         style={styles.searchInput}
@@ -100,7 +100,7 @@ export default function SupportScreen() {
       />
 
       <TouchableOpacity style={styles.button} onPress={handleSave}>
-        <Text style={styles.buttonText}>Save Support Team</Text>
+        <Text style={styles.buttonText}>Save mates</Text>
       </TouchableOpacity>
     </View>
   );
@@ -108,14 +108,17 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   container: {
-  flex: 1,
-  padding: 20,
+    flex: 1,
+    paddingLeft: 16,
+    paddingRight: 16,
+    top: -15,
+    marginBottom: -30,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center'
+    fontWeight: '600',
+    color: '#2E3A59',
+    marginBottom: 40,
    },
    searchInput: {
     borderWidth: 1,
@@ -140,7 +143,7 @@ const styles = StyleSheet.create({
     fontSize: 16
    },
   button: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#CB97F0',
     padding: 14,
     borderRadius: 8,
     marginTop: 10,
@@ -148,5 +151,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     textAlign: 'center',
+    fontWeight: '600',
     fontSize: 16 },
 });
