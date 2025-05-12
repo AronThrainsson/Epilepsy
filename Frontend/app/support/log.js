@@ -308,13 +308,13 @@ const LogScreen = () => {
                       style={[styles.noteButton, styles.cancelButton]}
                       onPress={() => setIsEditingNote(false)}
                     >
-                      <Text style={styles.buttonText}>Cancel</Text>
+                      <Text style={styles.buttonTextCancel}>Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.noteButton, styles.saveButton]}
                       onPress={saveNote}
                     >
-                      <Text style={styles.buttonText}>Save</Text>
+                      <Text style={styles.buttonTextSave}>Save</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -555,8 +555,16 @@ const styles = StyleSheet.create({
     zIndex: 1,
     padding: 4,
   },
+  buttonTextCancel: {
+  color: '#000',
+    fontWeight: '600'
+  },
+   buttonTextSave: {
+    color: '#fff',
+      fontWeight: '600'
+    },
   cancelButton: {
-    backgroundColor: '#64748B',
+    backgroundColor: '#e0e0e0',
   },
   saveButton: {
     backgroundColor: '#CB97F0',
