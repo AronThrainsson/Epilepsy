@@ -2,6 +2,8 @@ package com.awsomeproject.epilepsy.controller;
 
 import com.awsomeproject.epilepsy.models.User;
 import com.awsomeproject.epilepsy.services.AuthService;
+import com.awsomeproject.epilepsy.services.infoObjects.LoginResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,17 +27,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody User user) {
-        String result = authService.login(user);
+    public ResponseEntity<LoginResponse> login(@RequestBody User user) {
+        
+        LoginResponse result = authService.login(user);
 
-        Map<String, String> response = new HashMap<>();
-
-        if (result.equals("Invalid credentials")) {
-            response.put("message", result);
-            return ResponseEntity.status(401).body(response);
-        }
-
-        response.put("role", result);
-        return ResponseEntity.ok(response);
+        if (result.hasError)
+            return ResponseEntity.status(401).body(result);
+        
+        return ResponseEntity.ok(result);
     }
 }

@@ -10,8 +10,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('abc');
+  const [password, setPassword] = useState('1234');
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleLogin = async () => {
@@ -31,11 +31,12 @@ export default function Login() {
 
       if (response.ok) {
         // Get role from API response or fallback to stored role
-        const role = (data.role || await AsyncStorage.getItem('userRole') || 'epilepsy').toLowerCase();
+        const role = (data.userInfo.role || await AsyncStorage.getItem('userRole') || 'epilepsy').toLowerCase();
 
         // Store user data
         await AsyncStorage.multiSet([
-          ['userEmail', email],
+          ['userId', `${data.userInfo.id}`],
+          ['userEmail', data.userInfo.email],
           ['userRole', role],
           ['authToken', data.token || '']
         ]);

@@ -4,6 +4,7 @@ import com.awsomeproject.epilepsy.models.User;
 import com.awsomeproject.epilepsy.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.awsomeproject.epilepsy.services.infoObjects.*;
 
 import java.util.Optional;
 
@@ -22,13 +23,27 @@ public class AuthService {
         return "Signup successful!";
     }
 
-    public String login(User user) {
+    public LoginResponse login(User user) {
+        LoginResponse result = new LoginResponse();
         Optional<User> optionalUser = userRepository.findByEmail(user.getEmail());
 
         if (optionalUser.isEmpty() || !optionalUser.get().getPassword().equals(user.getPassword())) {
-            return "Invalid credentials";
+            result.hasError = true;
+            result.message = "Invalid credentials";
+            return result; // return early as we have error
         }
 
-        return optionalUser.get().getRole().toString(); // Returns "EPILEPSY" or "SUPPORT"
+        // User correctly logged in, add user 
+        var userResult = optionalUser.get();
+
+        var userInfo = new UserInfo();
+        result.userInfo = userInfo;
+        
+        // copy information
+        userInfo.id = userResult.getId();
+        userInfo.email = userResult.getEmail();
+        userInfo.role = userResult.getRole(); // Returns "EPILEPSY" or "SUPPORT" 
+
+        return result;
     }
 }

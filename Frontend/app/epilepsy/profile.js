@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BASE_URL } from '../../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const [user, setUser] = useState({
@@ -13,24 +14,17 @@ export default function Profile() {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  // TODO: Replace with actual logged-in email from storage or context
-  const userEmail = 'test@example.com';
-
   useEffect(() => {
-    fetch(`${BASE_URL}/api/user/by-email?email=${userEmail}`)
-      .then(res => res.json())
-      .then(data => {
-        setUser({
-          firstName: data.firstName || '',
-          surname: data.surname || '',
-          email: data.email || '',
-          phone: data.phone || '',
-        });
-      })
-      .catch(err => {
-        console.error('Failed to load profile:', err);
-        Alert.alert('Error loading profile');
-      });
+    AsyncStorage.getItem('userId')
+    .then(userId => {
+      fetch(`${BASE_URL}/api/profile/get/${userId}`)
+        .then(res => res.json())
+        .then(data => setUser(data))
+        .catch(err => {
+          console.error('Failed to load profile:', err);
+          Alert.alert('Error loading profile');
+        })
+    })
   }, []);
 
   const handleSave = async () => {
