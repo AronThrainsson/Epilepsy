@@ -105,7 +105,7 @@ export default function Profile() {
       <Text style={styles.subtitle}>During seizures:</Text>
       
       <ProfileInput
-        placeholder="Info to mate during seazure"
+        placeholder="Info to show during seizure"
         property="infoDuringSeazure"
         editable={isEditingSeazureInfo}
       />
@@ -115,7 +115,7 @@ export default function Profile() {
           style={[styles.button, { backgroundColor: isEditingProfile ? '#10B981' : '#4F46E5' }]}
           onPress={isEditingSeazureInfo ? handleSave : () => setIsEditingSeazureInfo(true)}
         >
-          <Text style={styles.buttonText}>{isEditingSeazureInfo ? 'Save' : 'Edit Seazure Info'}</Text>
+          <Text style={styles.buttonText}>{isEditingSeazureInfo ? 'Save' : 'Edit Seizure Info'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
