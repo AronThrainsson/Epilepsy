@@ -29,7 +29,7 @@ export default function Profile() {
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/api/user/update`, {
+      const response = await fetch(`${BASE_URL}/api/profile/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
@@ -47,6 +47,20 @@ export default function Profile() {
     }
   };
 
+
+  const ProfileInput = ({ property, placeholder, editable = true }) => (
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.input, !editable && styles.readOnlyInput]}
+        value={user[property]}
+        onChangeText={val => setUser(prevUser => ({...prevUser, [property]: val}))}
+        editable={editable}
+        placeholder={placeholder}
+      />
+      <Ionicons name="create-outline" size={20} color="#555" style={styles.editIcon} />
+    </View>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Profile</Text>
@@ -57,27 +71,24 @@ export default function Profile() {
       </View>
 
       <ProfileInput
-        label="Name"
-        value={user.firstName}
+        property="firstName"
+        placeholder="Name"
         editable={isEditing}
-        onChangeText={(text) => setUser({ ...user, firstName: text })}
       />
       <ProfileInput
-        label="Surname"
-        value={user.surname}
+        property="surname"
+        placeholder="Surname"
         editable={isEditing}
-        onChangeText={(text) => setUser({ ...user, surname: text })}
       />
       <ProfileInput
-        label="Email"
-        value={user.email}
+        placeholder="Email"
+        property="email"
         editable={false}
       />
       <ProfileInput
-        label="Phone"
-        value={user.phone}
+        placeholder="Phone"
+        property="phone"
         editable={isEditing}
-        onChangeText={(text) => setUser({ ...user, phone: text })}
       />
 
       <View style={styles.editSection}>
@@ -101,18 +112,7 @@ export default function Profile() {
   );
 }
 
-const ProfileInput = ({ label, value, onChangeText, editable = true }) => (
-  <View style={styles.inputWrapper}>
-    <TextInput
-      style={[styles.input, !editable && styles.readOnlyInput]}
-      value={value}
-      onChangeText={onChangeText}
-      editable={editable}
-      placeholder={label}
-    />
-    <Ionicons name="create-outline" size={20} color="#555" style={styles.editIcon} />
-  </View>
-);
+
 
 const styles = StyleSheet.create({
   container: {
