@@ -28,6 +28,10 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    
+    @Column(name = "info_during_seazure")
+    private String infoDuringSeazure;
+
     public User() {}
 
     public User(String email, String password, String firstName, String surname, String phone, Role role) {
@@ -65,4 +69,7 @@ public class User {
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+    
+    public String getInfoDuringSeazure() { return infoDuringSeazure; }
+    public void setInfoDuringSeazure(String infoDuringSeazure) { this.infoDuringSeazure = infoDuringSeazure; }
 }

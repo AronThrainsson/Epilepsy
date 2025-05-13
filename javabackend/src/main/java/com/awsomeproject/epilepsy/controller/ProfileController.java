@@ -2,10 +2,8 @@ package com.awsomeproject.epilepsy.controller;
 
 import com.awsomeproject.epilepsy.services.ProfileService;
 import com.awsomeproject.epilepsy.services.infoObjects.UserInfo;
-import com.fasterxml.jackson.databind.introspect.TypeResolutionContext.Empty;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

@@ -10,8 +10,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState('abc');
-  const [password, setPassword] = useState('1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleLogin = async () => {

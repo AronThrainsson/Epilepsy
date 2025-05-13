@@ -23,6 +23,7 @@ public class ProfileService {
         info.firstName = user.getFirstName();
         info.surname = user.getSurname();
         info.phone = user.getPhone();
+        info.infoDuringSeazure = user.getInfoDuringSeazure();
 
         return info;        
     }
@@ -39,6 +40,7 @@ public class ProfileService {
         existingUser.setFirstName(userInfo.firstName);
         existingUser.setSurname(userInfo.surname);
         existingUser.setPhone(userInfo.phone);
+        existingUser.setInfoDuringSeazure(userInfo.infoDuringSeazure);
         
         // save changes to database
         userRepository.save(existingUser);

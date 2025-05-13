@@ -9,4 +9,5 @@ public class UserInfo {
     public String surname;
     public String phone;
     public Role role;
+    public String infoDuringSeazure;
 }

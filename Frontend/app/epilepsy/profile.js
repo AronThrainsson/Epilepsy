@@ -10,9 +10,11 @@ export default function Profile() {
     surname: '',
     email: '',
     phone: '',
+    infoDuringSeazure: ''
   });
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingSeazureInfo, setIsEditingSeazureInfo] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('userId')
@@ -37,7 +39,7 @@ export default function Profile() {
 
       if (response.ok) {
         Alert.alert('Profile updated!');
-        setIsEditing(false);
+        setIsEditingProfile(false);
       } else {
         Alert.alert('Failed to update profile');
       }
@@ -73,12 +75,12 @@ export default function Profile() {
       <ProfileInput
         property="firstName"
         placeholder="Name"
-        editable={isEditing}
+        editable={isEditingProfile}
       />
       <ProfileInput
         property="surname"
         placeholder="Surname"
-        editable={isEditing}
+        editable={isEditingProfile}
       />
       <ProfileInput
         placeholder="Email"
@@ -88,26 +90,34 @@ export default function Profile() {
       <ProfileInput
         placeholder="Phone"
         property="phone"
-        editable={isEditing}
+        editable={isEditingProfile}
       />
 
       <View style={styles.editSection}>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: isEditing ? '#10B981' : '#4F46E5' }]}
-          onPress={isEditing ? handleSave : () => setIsEditing(true)}
+          style={[styles.button, { backgroundColor: isEditingProfile ? '#10B981' : '#4F46E5' }]}
+          onPress={isEditingProfile ? handleSave : () => setIsEditingProfile(true)}
         >
-          <Text style={styles.buttonText}>{isEditing ? 'Save' : 'Edit Profile'}</Text>
+          <Text style={styles.buttonText}>{isEditingProfile ? 'Save' : 'Edit Profile'}</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.subtitle}>During seizures:</Text>
+      
+      <ProfileInput
+        placeholder="Info to mate during seazure"
+        property="infoDuringSeazure"
+        editable={isEditingSeazureInfo}
+      />
 
-      <TouchableOpacity style={styles.infoButton}>
-        <Text style={styles.infoButtonText}>Add info to my own phone</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.infoButton}>
-        <Text style={styles.infoButtonText}>Add info to my mates’ phone</Text>
-      </TouchableOpacity>
+      <View style={styles.editSection}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: isEditingProfile ? '#10B981' : '#4F46E5' }]}
+          onPress={isEditingSeazureInfo ? handleSave : () => setIsEditingSeazureInfo(true)}
+        >
+          <Text style={styles.buttonText}>{isEditingSeazureInfo ? 'Save' : 'Edit Seazure Info'}</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
