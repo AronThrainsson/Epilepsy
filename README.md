@@ -2,7 +2,7 @@
 ### Frontend
 1. Makesure Node.js is installed
 2. `cd Frontend` - make sure you are in the folde!
-3. `npm install -E` - install all nmp packages newed for frontend using explicit versions given in config
+3. `npm install -E` - install all npm packages newed for frontend using explicit versions given in package-config
 
 ### Using mobile device for testing
 1. Ensire `config.js` have correct IP-Address information
