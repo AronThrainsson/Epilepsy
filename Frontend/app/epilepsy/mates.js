@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput } 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { BASE_URL } from '../../config';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function SupportScreen() {
   const [supportUsers, setSupportUsers] = useState([]);
@@ -13,11 +14,18 @@ export default function SupportScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      const fetchEmail = async () => {
+      const fetchData = async () => {
+        // Load user email
         const storedEmail = await AsyncStorage.getItem('userEmail');
         if (storedEmail) setEpilepsyEmail(storedEmail);
+
+        // Load previously selected mates
+        const storedMates = await AsyncStorage.getItem('activatedMatesEmails');
+        if (storedMates) {
+          setSelected(JSON.parse(storedMates));
+        }
       };
-      fetchEmail();
+      fetchData();
     }, [])
   );
 
@@ -25,7 +33,7 @@ export default function SupportScreen() {
     fetch(`${BASE_URL}/api/support-users`)
       .then((res) => res.json())
       .then((data) => {
-        console.log('Support users api response:', data); // log
+        console.log('Support users api response:', data);
         setSupportUsers(data);
         setFilteredUsers(data);
       })
@@ -55,6 +63,19 @@ export default function SupportScreen() {
           }),
         });
       }
+
+      // Store both display names and emails
+      const selectedMates = supportUsers
+        .filter(user => selected.includes(user.email))
+        .map(user => `${user.firstName} ${user.surname}`);
+
+      const selectedEmails = supportUsers
+        .filter(user => selected.includes(user.email))
+        .map(user => user.email);
+
+      await AsyncStorage.setItem('activatedMates', JSON.stringify(selectedMates));
+      await AsyncStorage.setItem('activatedMatesEmails', JSON.stringify(selectedEmails));
+
       Alert.alert('Mates updated!');
     } catch (err) {
       Alert.alert('Error saving mates');
@@ -92,9 +113,16 @@ export default function SupportScreen() {
             ]}
             onPress={() => toggleSelect(item.email)}
           >
-            <Text style={styles.itemText}>
-              {item.firstName} {item.surname} ({item.email})
-            </Text>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemText}>
+                {item.firstName} {item.surname} ({item.email})
+              </Text>
+              {selected.includes(item.email) ? (
+                <MaterialIcons name="check-circle" size={24} color="#CB97F0" />
+              ) : (
+                <MaterialIcons name="radio-button-unchecked" size={24} color="#ccc" />
+              )}
+            </View>
           </TouchableOpacity>
         )}
       />
@@ -136,21 +164,33 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   selectedItem: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#3b82f6',
+    backgroundColor: '#EFE6FF',
+    borderColor: '#9747FF',
+  },
+  itemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   itemText: {
-    fontSize: 16
+    fontSize: 16,
+    flex: 1,
    },
   button: {
     backgroundColor: '#CB97F0',
     padding: 14,
     borderRadius: 8,
     marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonText: {
     color: '#fff',
     textAlign: 'center',
     fontWeight: '600',
-    fontSize: 16 },
+    fontSize: 16,
+  },
 });

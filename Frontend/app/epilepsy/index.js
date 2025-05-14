@@ -1,37 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, FlatList, StyleSheet } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function Home() {
-  // state for all functionality
   const [batteryLevel, setBatteryLevel] = useState(0);
   const [alertOn, setAlertOn] = useState(false);
   const [activatedMates, setActivatedMates] = useState([]);
   const [watchStatus, setWatchStatus] = useState('ok');
 
-  // color scheme
-  const COLORS = {
-    statusOk: '#d4edda',
-    statusError: '#f8d7da'
+  const loadMates = async () => {
+    const storedMates = await AsyncStorage.getItem('activatedMates');
+    if (storedMates) {
+      setActivatedMates(JSON.parse(storedMates));
+    } else {
+      setActivatedMates([]);
+    }
   };
 
-  // mock data initialization
   useEffect(() => {
-    setBatteryLevel(78);
-    setActivatedMates(['name 1', 'name 2', 'name 3', 'name 4']);
-    setAlertOn(true);
-    // setWatchStatus('error');
-    // Uncomment to simulate error state
+    const loadData = async () => {
+      setBatteryLevel(78);
+      setAlertOn(true);
+      await loadMates();
+    };
+    loadData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMates();
+    }, [])
+  );
 
   const toggleAlert = () => {
     setAlertOn(prev => !prev);
-    // TODO: Add functionality to alert mates BACKEND!!!!!
   };
 
   return (
     <View style={styles.container}>
-      {/* Status message + error message */}
       <View style={styles.statusContainer}>
         <View style={styles.statusIconWrapper}>
           {watchStatus === 'ok' ? (
@@ -45,7 +53,6 @@ export default function Home() {
           )}
         </View>
 
-        {/* Status text */}
         <Text style={styles.statusMessage}>
           {watchStatus === 'ok' ? 'EVERYTHING IS OKAY!' : 'SOMETHING IS WRONG!'}
         </Text>
@@ -65,13 +72,11 @@ export default function Home() {
         )}
       </View>
 
-      {/* Watch battery */}
       <View style={styles.centeredRow}>
         <Text style={styles.label}>Watch battery:</Text>
         <Text style={styles.value}>{batteryLevel}%</Text>
       </View>
 
-      {/* Alert mates toggle */}
       <View style={styles.alertRow}>
         <Text style={styles.label}>Alert mates:</Text>
         <Switch
@@ -82,30 +87,30 @@ export default function Home() {
         />
       </View>
 
-      {/* Activated mates list */}
       <View style={styles.centeredContainer}>
         <Text style={styles.labels}>Activated mates:</Text>
-        <FlatList
-          data={activatedMates}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.mateItem}>
-              <Text style={styles.mateText}>{item}</Text>
-            </View>
-          )}
-          contentContainerStyle={styles.centeredMatesList}
-        />
+        {activatedMates.length > 0 ? (
+          <FlatList
+            data={activatedMates}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.mateItem}>
+                <Text style={styles.mateText}>{item}</Text>
+              </View>
+            )}
+            contentContainerStyle={styles.centeredMatesList}
+          />
+        ) : (
+          <Text style={styles.noMatesText}>No mates activated yet</Text>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
@@ -143,28 +148,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     textAlign: 'center',
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    paddingLeft: 40,
-    paddingRight: 65,
-  },
   alertRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 70,
-  },
-  value: {
-    fontSize: 18,
-    color: '#000',
-    textAlign: 'right',
-  },
-  centeredContainer: {
-    alignItems: 'center',
-    marginTop: 125,
   },
   centeredRow: {
     flexDirection: 'row',
@@ -177,6 +165,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     marginRight: 8,
+  },
+  value: {
+    fontSize: 18,
+    color: '#000',
+    textAlign: 'right',
+  },
+  centeredContainer: {
+    alignItems: 'center',
+    marginTop: 125,
   },
   labels: {
     fontSize: 13,
@@ -195,5 +192,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#000',
     margin: 1,
+  },
+  noMatesText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });

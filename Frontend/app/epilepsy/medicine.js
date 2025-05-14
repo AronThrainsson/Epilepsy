@@ -23,28 +23,17 @@ const MedicationPage = () => {
   const [time, setTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Load medications on mount
   useEffect(() => {
     const loadMedications = async () => {
       try {
         const savedMeds = await AsyncStorage.getItem('medications');
         if (savedMeds) {
           const parsedMeds = JSON.parse(savedMeds);
-          // Initialize with enabled: true if not present (for backward compatibility)
           const medsWithToggle = parsedMeds.map(med => ({
             ...med,
             enabled: med.enabled !== undefined ? med.enabled : true
           }));
           setMedicines(medsWithToggle);
-
-          if (parsedMeds.length === 0) {
-            const defaultMeds = [
-              { id: '1', name: 'Epilex', dose: '200mg', time: '08:00', enabled: true },
-              { id: '2', name: 'Keppra', dose: '500mg', time: '20:00', enabled: true },
-            ];
-            setMedicines(defaultMeds);
-            await AsyncStorage.setItem('medications', JSON.stringify(defaultMeds));
-          }
         } else {
           const defaultMeds = [
             { id: '1', name: 'Epilex', dose: '200mg', time: '08:00', enabled: true },
@@ -60,7 +49,6 @@ const MedicationPage = () => {
     loadMedications();
   }, []);
 
-  // Save medications when they change
   useEffect(() => {
     const saveMedications = async () => {
       try {
@@ -69,9 +57,7 @@ const MedicationPage = () => {
         console.error('Failed to save medications', error);
       }
     };
-    if (medicines.length > 0) {
-      saveMedications();
-    }
+    saveMedications();
   }, [medicines]);
 
   useEffect(() => {
@@ -102,7 +88,7 @@ const MedicationPage = () => {
       name,
       dose,
       time: formattedTime,
-      enabled: selectedMedicine?.enabled !== undefined ? selectedMedicine.enabled : true
+      enabled: selectedMedicine ? selectedMedicine.enabled : true
     };
 
     if (selectedMedicine) {
@@ -121,9 +107,10 @@ const MedicationPage = () => {
   };
 
   const toggleMedication = (id) => {
-    setMedicines(medicines.map(med =>
+    const updatedMeds = medicines.map(med =>
       med.id === id ? { ...med, enabled: !med.enabled } : med
-    ));
+    );
+    setMedicines(updatedMeds);
   };
 
   const onTimeChange = (event, selectedTime) => {
@@ -135,7 +122,6 @@ const MedicationPage = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header and Medication List */}
       <View style={styles.header}>
         <Text style={styles.title}>My medications</Text>
         <TouchableOpacity
@@ -178,7 +164,6 @@ const MedicationPage = () => {
         ))}
       </ScrollView>
 
-      {/* Edit Medication Modal */}
       <Modal
         visible={isModalVisible}
         animationType="slide"
