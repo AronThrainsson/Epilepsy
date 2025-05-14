@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, Switch, FlatList, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -38,73 +38,93 @@ export default function Home() {
   };
 
   return (
-    <View style={styles.mainContainer}>
-      {/* Status */}
-      <View style={styles.statusContainer}>
-        <View style={styles.statusIconWrapper}>
-          {watchStatus === 'ok' ? (
-            <View style={[styles.statusIcon, { backgroundColor: '#4CAF50' }]}>
-              <Ionicons name="checkmark" size={50} color="white" />
-            </View>
-          ) : (
-            <View style={[styles.statusIcon, { backgroundColor: '#F44336' }]}>
-              <MaterialIcons name="close" size={50} color="white" />
+    <ScrollView
+      contentContainerStyle={styles.scrollContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.container}>
+        {/* Status */}
+        <View style={styles.statusContainer}>
+          <View style={styles.statusIconWrapper}>
+            {watchStatus === 'ok' ? (
+              <View style={[styles.statusIcon, { backgroundColor: '#4CAF50' }]}>
+                <Ionicons name="checkmark" size={50} color="white" />
+              </View>
+            ) : (
+              <View style={[styles.statusIcon, { backgroundColor: '#F44336' }]}>
+                <MaterialIcons name="close" size={50} color="white" />
+              </View>
+            )}
+          </View>
+          <Text style={styles.statusMessage}>
+            {watchStatus === 'ok' ? 'EVERYTHING IS OKAY!' : 'SOMETHING IS WRONG!'}
+          </Text>
+          <Text style={styles.statusSubmessage}>
+            {watchStatus === 'ok'
+              ? 'Your watch and app is active'
+              : 'Your watch is not working properly'}
+          </Text>
+          {watchStatus === 'error' && (
+            <View style={styles.errorSteps}>
+              <Text style={styles.errorStep}>1. Check watch connection</Text>
+              <Text style={styles.errorStep}>2. Check watch battery</Text>
+              <Text style={styles.errorStep}>3. Restart watch</Text>
             </View>
           )}
         </View>
-        <Text style={styles.statusMessage}>
-          {watchStatus === 'ok' ? 'EVERYTHING IS OKAY!' : 'SOMETHING IS WRONG!'}
-        </Text>
-        {watchStatus === 'error' && (
-          <View style={styles.errorSteps}>
-            <Text style={styles.errorStep}>1. Check watch connection</Text>
-            <Text style={styles.errorStep}>2. Check watch battery</Text>
-            <Text style={styles.errorStep}>3. Restart watch</Text>
-          </View>
-        )}
-      </View>
 
-      {/* Availability Toggle */}
-      <View style={styles.availabilityContainer}>
-        <Text style={styles.label}>Available:</Text>
-        <Switch
-          value={isAvailable}
-          onValueChange={toggleAvailability}
-          trackColor={{ false: '#767577', true: '#32BF55' }}
-          thumbColor={isAvailable ? '#ffffff' : '#f4f3f4'}
-        />
-      </View>
+        {/* Availability Toggle */}
+        <View style={styles.centeredRow}>
+          <Text style={styles.label}>Available:</Text>
+          <Switch
+            value={isAvailable}
+            onValueChange={toggleAvailability}
+            trackColor={{ false: '#767577', true: '#32BF55' }}
+            thumbColor={isAvailable ? '#ffffff' : '#f4f3f4'}
+          />
+        </View>
 
-      {/* Activated Mates */}
-      <View style={styles.teamContainer}>
-        <Text style={styles.teamLabel}>You are part of this team:</Text>
-        <FlatList
-          data={activatedMates}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.mateItem}>
-              <Text style={styles.mateText}>{item}</Text>
-            </View>
+        {/* Activated Mates */}
+        <View style={styles.centeredContainer}>
+          <Text style={styles.labels}>You are part of this team:</Text>
+          {activatedMates.length > 0 ? (
+            <FlatList
+              data={activatedMates}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.mateItem}>
+                  <Text style={styles.mateText}>{item}</Text>
+                </View>
+              )}
+              contentContainerStyle={styles.centeredMatesList}
+            />
+          ) : (
+            <Text style={styles.noMatesText}>No mates activated yet</Text>
           )}
-          contentContainerStyle={styles.teamList}
-        />
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1 },
-
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  container: {
+    flex: 1,
+    paddingTop: 70,
+  },
   statusContainer: {
     alignItems: 'center',
-    padding: 35,
-    marginBottom: 20,
+    padding: 5,
+    marginBottom: 10,
   },
   statusIconWrapper: {
-    marginBottom: 25,
+    marginBottom: 40,
   },
   statusIcon: {
     width: 80,
@@ -117,38 +137,43 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 30,
   },
-  errorSteps: { marginTop: 10 },
+  statusSubmessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  errorSteps: {
+    marginTop: 10,
+  },
   errorStep: {
     fontSize: 14,
     marginBottom: 5,
     textAlign: 'center',
   },
-  availabilityContainer: {
+  centeredRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 20,
-    marginBottom: 90,
-    marginHorizontal: 90,
+    marginBottom: 110,
+    paddingHorizontal: 70,
   },
   label: {
-     fontSize: 16,
-    color: '#000'
-  },
-  teamContainer: {
-    alignItems: 'center',
-    marginTop: 110,
-    },
-  teamLabel: {
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 16,
     color: '#000',
-    marginBottom: 20,
-    paddingHorizontal: 25,
+    marginRight: 8,
   },
-  teamList: {
-    paddingBottom: 10,
+  centeredContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  labels: {
+    fontSize: 13,
+    color: '#000',
+    marginRight: 8,
+    marginBottom: 20,
   },
   mateItem: {
     backgroundColor: '#E9CBFF',
@@ -160,5 +185,15 @@ const styles = StyleSheet.create({
   mateText: {
     fontSize: 13,
     color: '#000',
+    margin: 1,
+  },
+  noMatesText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  centeredMatesList: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -8,7 +8,9 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
-  Switch
+  Switch,
+  StatusBar,
+  SafeAreaView
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,6 +24,10 @@ const MedicationPage = () => {
   const [dose, setDose] = useState('');
   const [time, setTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Platform-specific header height
+  const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
+  const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
   useEffect(() => {
     const loadMedications = async () => {
@@ -121,21 +127,34 @@ const MedicationPage = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My medications</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            setSelectedMedicine(null);
-            setIsModalVisible(true);
-          }}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar
+        backgroundColor="#FFFFFF"
+        barStyle="dark-content"
+        translucent={Platform.OS === 'android'}
+      />
+
+      {/* Header */}
+      <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>My medications</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => {
+              setSelectedMedicine(null);
+              setIsModalVisible(true);
+            }}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.listContainer}>
+      {/* Content with proper margin to avoid header overlap */}
+      <ScrollView
+        style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
+        contentContainerStyle={styles.scrollContent}
+      >
         {medicines.map((item) => (
           <View key={item.id} style={[
             styles.medicineItemContainer,
@@ -242,42 +261,49 @@ const MedicationPage = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    paddingLeft: 16,
-    paddingRight: 16,
-    top: -15,
-    marginBottom: -30,
+    backgroundColor: '#F9F0FF',
+  },
+  headerContainer: {
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    zIndex: 10,
+    paddingTop: Platform.OS === 'ios' ? 30 : 0,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    height: '100%',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   title: {
     fontSize: 22,
     fontWeight: '600',
     color: '#2E3A59',
-    marginBottom: 40,
   },
   addButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
   },
   addButtonText: {
     color: 'black',
     fontSize: 40,
     textAlign: 'center'
-  },
-  listContainer: {
-    flex: 1
   },
   medicineItemContainer: {
     flexDirection: 'row',

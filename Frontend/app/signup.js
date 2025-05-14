@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BASE_URL } from '../config';
 import { registerForPushNotificationsAsync } from './services/notificationService';
@@ -102,91 +113,103 @@ export default function Signup() {
   };
 
   return (
-    <View style={styles.background}>
-      <View style={styles.container}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/role')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#4F46E5" />
-        </TouchableOpacity>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.background}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.container}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/role')}
+          >
+            <Ionicons name="arrow-back" size={24} color="#4F46E5" />
+          </TouchableOpacity>
 
-        <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.title}>Create Account</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="First Name"
-          value={firstName}
-          onChangeText={setFirstName}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Surname"
-          value={surname}
-          onChangeText={setSurname}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone"
-          value={phone}
-          keyboardType="phone-pad"
-          onChangeText={setPhone}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="First Name"
+            value={firstName}
+            onChangeText={setFirstName}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Surname"
+            value={surname}
+            onChangeText={setSurname}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Phone"
+            value={phone}
+            keyboardType="phone-pad"
+            onChangeText={setPhone}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            returnKeyType="done"
+            onSubmitEditing={handleSignup}
+          />
 
-        <TouchableOpacity style={styles.button} onPress={handleSignup}>
-          <Text style={styles.buttonText}>Sign Up</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={handleSignup}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/login')}>
-          <Text style={styles.linkText}>Already have an account? Log in</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity onPress={() => router.push('/login')}>
+            <Text style={styles.linkText}>Already have an account? Log in</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   background: {
-    position: 'absolute',
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    flex: 1,
     backgroundColor: '#F9F0FF',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
-    flex: 1,
     paddingHorizontal: 30,
-    justifyContent: 'center',
-    marginTop: 60,
+    paddingBottom: 40,
   },
   backButton: {
     position: 'absolute',
-    top: 40,
+    top: Platform.OS === 'ios' ? 60 : 40,
     left: 30,
     zIndex: 1,
   },
@@ -196,6 +219,7 @@ const styles = StyleSheet.create({
     color: '#2E3A59',
     marginBottom: 50,
     textAlign: 'center',
+    marginTop: Platform.OS === 'ios' ? 60 : 40,
   },
   input: {
     backgroundColor: '#fff',
@@ -210,7 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#CB97F0',
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 90,
+    marginTop: 20,
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

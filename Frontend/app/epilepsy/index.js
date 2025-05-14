@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, FlatList, StyleSheet } from 'react-native';
+import { View, Text, Switch, FlatList, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -39,88 +39,98 @@ export default function Home() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.statusContainer}>
-        <View style={styles.statusIconWrapper}>
-          {watchStatus === 'ok' ? (
-            <View style={[styles.statusIcon, { backgroundColor: '#4CAF50' }]}>
-              <Ionicons name="checkmark" size={50} color="white" />
-            </View>
-          ) : (
-            <View style={[styles.statusIcon, { backgroundColor: '#F44336' }]}>
-              <MaterialIcons name="close" size={50} color="white" />
+    <ScrollView
+      contentContainerStyle={styles.scrollContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.container}>
+        <View style={styles.statusContainer}>
+          <View style={styles.statusIconWrapper}>
+            {watchStatus === 'ok' ? (
+              <View style={[styles.statusIcon, { backgroundColor: '#4CAF50' }]}>
+                <Ionicons name="checkmark" size={50} color="white" />
+              </View>
+            ) : (
+              <View style={[styles.statusIcon, { backgroundColor: '#F44336' }]}>
+                <MaterialIcons name="close" size={50} color="white" />
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.statusMessage}>
+            {watchStatus === 'ok' ? 'EVERYTHING IS OKAY!' : 'SOMETHING IS WRONG!'}
+          </Text>
+
+          <Text style={styles.statusSubmessage}>
+            {watchStatus === 'ok'
+              ? 'Your watch and app is active'
+              : 'Your watch is not working properly:'}
+          </Text>
+
+          {watchStatus === 'error' && (
+            <View style={styles.errorSteps}>
+              <Text style={styles.errorStep}>1. Check watch connection</Text>
+              <Text style={styles.errorStep}>2. Check watch battery</Text>
+              <Text style={styles.errorStep}>3. Restart watch</Text>
             </View>
           )}
         </View>
 
-        <Text style={styles.statusMessage}>
-          {watchStatus === 'ok' ? 'EVERYTHING IS OKAY!' : 'SOMETHING IS WRONG!'}
-        </Text>
+        <View style={styles.centeredRow}>
+          <Text style={styles.label}>Watch battery:</Text>
+          <Text style={styles.value}>{batteryLevel}%</Text>
+        </View>
 
-        <Text style={styles.statusSubmessage}>
-          {watchStatus === 'ok'
-            ? 'Your watch and app is active'
-            : 'Your watch is not working properly:'}
-        </Text>
-
-        {watchStatus === 'error' && (
-          <View style={styles.errorSteps}>
-            <Text style={styles.errorStep}>1. Check watch connection</Text>
-            <Text style={styles.errorStep}>2. Check watch battery</Text>
-            <Text style={styles.errorStep}>3. Restart watch</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.centeredRow}>
-        <Text style={styles.label}>Watch battery:</Text>
-        <Text style={styles.value}>{batteryLevel}%</Text>
-      </View>
-
-      <View style={styles.alertRow}>
-        <Text style={styles.label}>Alert mates:</Text>
-        <Switch
-          value={alertOn}
-          onValueChange={toggleAlert}
-          trackColor={{ false: '#767577', true: '#32BF55' }}
-          thumbColor={alertOn ? '#ffffff' : '#f4f3f4'}
-        />
-      </View>
-
-      <View style={styles.centeredContainer}>
-        <Text style={styles.labels}>Activated mates:</Text>
-        {activatedMates.length > 0 ? (
-          <FlatList
-            data={activatedMates}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.mateItem}>
-                <Text style={styles.mateText}>{item}</Text>
-              </View>
-            )}
-            contentContainerStyle={styles.centeredMatesList}
+        <View style={styles.alertRow}>
+          <Text style={styles.label}>Alert mates:</Text>
+          <Switch
+            value={alertOn}
+            onValueChange={toggleAlert}
+            trackColor={{ false: '#767577', true: '#32BF55' }}
+            thumbColor={alertOn ? '#ffffff' : '#f4f3f4'}
           />
-        ) : (
-          <Text style={styles.noMatesText}>No mates activated yet</Text>
-        )}
+        </View>
+
+        <View style={styles.centeredContainer}>
+          <Text style={styles.labels}>Activated mates:</Text>
+          {activatedMates.length > 0 ? (
+            <FlatList
+              data={activatedMates}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.mateItem}>
+                  <Text style={styles.mateText}>{item}</Text>
+                </View>
+              )}
+              contentContainerStyle={styles.centeredMatesList}
+            />
+          ) : (
+            <Text style={styles.noMatesText}>No mates activated yet</Text>
+          )}
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   container: {
     flex: 1,
+    paddingTop: 80,
   },
   statusContainer: {
     alignItems: 'center',
-    padding: 35,
+    padding: 5,
     marginBottom: 10,
   },
   statusIconWrapper: {
-    marginBottom: 25,
+    marginBottom: 40,
   },
   statusIcon: {
     width: 80,
@@ -133,7 +143,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
   statusSubmessage: {
     fontSize: 14,
@@ -153,6 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 70,
+    marginBottom: 90,
   },
   centeredRow: {
     flexDirection: 'row',
@@ -173,7 +184,8 @@ const styles = StyleSheet.create({
   },
   centeredContainer: {
     alignItems: 'center',
-    marginTop: 125,
+    marginTop: 20,
+    marginBottom: 20,
   },
   labels: {
     fontSize: 13,

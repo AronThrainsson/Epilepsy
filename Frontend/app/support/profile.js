@@ -135,7 +135,7 @@ export default function Profile() {
       {/* Header */}
       <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
       </View>
 
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     backgroundColor: '#F9F0FF',
     paddingTop: Platform.OS === 'ios' ? 30 : 0,
+
   },
   header: {
     flexDirection: 'row',
@@ -236,6 +237,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     height: '100%',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2E3A59',
   },
   keyboardAvoidingContainer: {
     flex: 1,
@@ -246,11 +252,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2E3A59',
   },
   avatarContainer: {
     alignItems: 'center',

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
         name = "user_support_relation",
         uniqueConstraints = @UniqueConstraint(columnNames = {"epilepsy_user_id", "support_user_id"})
 )
+
 public class UserSupportRelation {
 
     @Id

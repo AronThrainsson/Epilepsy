@@ -11,7 +11,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
@@ -27,6 +29,10 @@ const LogScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
+
+  // Platform-specific header height
+  const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
+  const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
   const loadSeizures = async () => {
     try {
@@ -163,192 +169,234 @@ const LogScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Seizure Log</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar
+        backgroundColor="#FFFFFF"
+        barStyle="dark-content"
+        translucent={Platform.OS === 'android'}
+      />
 
-      <View style={styles.calendarContainer}>
-        <Calendar
-          onDayPress={handleDayPress}
-          markedDates={{
-            [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
-            ...seizures.reduce((acc, seizure) => {
-              acc[seizure.date] = { marked: true, dotColor: '#4F46E5' };
-              return acc;
-            }, {})
-          }}
-          theme={{
-            selectedDayBackgroundColor: '#4F46E5',
-            todayTextColor: '#4F46E5',
-            arrowColor: '#4F46E5',
-          }}
-          style={styles.calendar}
-        />
-      </View>
-
-      <View style={styles.seizuresContainer}>
-        <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
-
-        {filteredSeizures.length > 0 ? (
-          <FlatList
-            data={filteredSeizures}
-            renderItem={renderSeizureItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-              />
-            }
-          />
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.noSeizuresText}>No seizures recorded for this date</Text>
-          </View>
-        )}
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.smallButton, styles.sampleButton]}
-            onPress={addSampleData}
-          >
-            <Text style={styles.buttonText}>Add Sample</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.smallButton, styles.addButton]}
-            onPress={() => router.push('/add-seizure')}
-          >
-            <Text style={styles.buttonText}>Add Seizure</Text>
-          </TouchableOpacity>
+      {/* Header */}
+      <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Seizure Log</Text>
         </View>
       </View>
 
-{/* Modal for seizure details */}
-<Modal
-  animationType="slide"
-  transparent={true}
-  visible={modalVisible}
-  onRequestClose={() => setModalVisible(false)}
->
-  <KeyboardAvoidingView
-    style={styles.modalContainer}
-    behavior={Platform.OS === "ios" ? "padding" : "height"}
-  >
-    <ScrollView
-      contentContainerStyle={styles.scrollContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.modalContent}>
-        {/* Added delete icon in top left */}
-        <TouchableOpacity
-          style={styles.deleteIcon}
-          onPress={() => selectedSeizure && deleteSeizure(selectedSeizure.id)}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={Platform.OS === "ios" ? HEADER_HEIGHT : 0}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <MaterialIcons name="delete" size={24} color="#EF4444" />
-        </TouchableOpacity>
+          <View style={styles.calendarContainer}>
+            <Calendar
+              onDayPress={handleDayPress}
+              markedDates={{
+                [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
+                ...seizures.reduce((acc, seizure) => {
+                  acc[seizure.date] = { marked: true, dotColor: '#4F46E5' };
+                  return acc;
+                }, {})
+              }}
+              theme={{
+                selectedDayBackgroundColor: '#4F46E5',
+                todayTextColor: '#4F46E5',
+                arrowColor: '#4F46E5',
+              }}
+              style={styles.calendar}
+            />
+          </View>
 
-        {/* Existing close icon in top right */}
-        <TouchableOpacity
-          style={styles.closeIcon}
-          onPress={() => setModalVisible(false)}
-        >
-          <Feather name="x" size={24} color="#4F46E5" />
-        </TouchableOpacity>
+          <View style={styles.seizuresContainer}>
+            <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
 
-        <Text style={styles.modalTitle}>Seizure Details</Text>
+            {filteredSeizures.length > 0 ? (
+              <FlatList
+                data={filteredSeizures}
+                renderItem={renderSeizureItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                  />
+                }
+              />
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.noSeizuresText}>No seizures recorded for this date</Text>
+              </View>
+            )}
 
-        {selectedSeizure && (
-          <>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Date:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.date}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Time:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.time || '--'}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Duration:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.duration} minutes</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Heart Rate:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.heartRate || '--'} bpm</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>SpO2:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.spO2 || '--'}%</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Movement:</Text>
-              <Text style={styles.detailValue}>{selectedSeizure.movement || '--'}</Text>
-            </View>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.smallButton, styles.sampleButton]}
+                onPress={addSampleData}
+              >
+                <Text style={styles.buttonText}>Add Sample</Text>
+              </TouchableOpacity>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Notes:</Text>
-              <TouchableOpacity onPress={handleEditNote}>
-                <Feather name="edit" size={20} color="#4F46E5" />
+              <TouchableOpacity
+                style={[styles.smallButton, styles.addButton]}
+                onPress={() => router.push('/add-seizure')}
+              >
+                <Text style={styles.buttonText}>Add Seizure</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-            {isEditingNote ? (
-              <View style={styles.noteInputContainer}>
-                <TextInput
-                  style={styles.noteInput}
-                  multiline
-                  placeholder="Enter notes about this seizure..."
-                  value={currentNote}
-                  onChangeText={setCurrentNote}
-                  autoFocus
-                />
-                <View style={styles.actionButtonsContainer}>
-                  <View style={styles.noteActionButtons}>
-                    <TouchableOpacity
-                      style={[styles.noteButton, styles.cancelButton]}
-                      onPress={() => setIsEditingNote(false)}
-                    >
-                      <Text style={styles.buttonTextCancel}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.noteButton, styles.saveButton]}
-                      onPress={saveNote}
-                    >
-                      <Text style={styles.buttonTextSave}>Save</Text>
+      {/* Modal for seizure details */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContent}>
+              {/* Added delete icon in top left */}
+              <TouchableOpacity
+                style={styles.deleteIcon}
+                onPress={() => selectedSeizure && deleteSeizure(selectedSeizure.id)}
+              >
+                <MaterialIcons name="delete" size={24} color="#EF4444" />
+              </TouchableOpacity>
+
+              {/* Existing close icon in top right */}
+              <TouchableOpacity
+                style={styles.closeIcon}
+                onPress={() => setModalVisible(false)}
+              >
+                <Feather name="x" size={24} color="#4F46E5" />
+              </TouchableOpacity>
+
+              <Text style={styles.modalTitle}>Seizure Details</Text>
+
+              {selectedSeizure && (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.date}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Time:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.time || '--'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Duration:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.duration} minutes</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Heart Rate:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.heartRate || '--'} bpm</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>SpO2:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.spO2 || '--'}%</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Movement:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.movement || '--'}</Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Notes:</Text>
+                    <TouchableOpacity onPress={handleEditNote}>
+                      <Feather name="edit" size={20} color="#4F46E5" />
                     </TouchableOpacity>
                   </View>
-                </View>
-              </View>
-            ) : selectedSeizure.note ? (
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteText}>{selectedSeizure.note}</Text>
-              </View>
-            ) : (
-              <Text style={styles.noNotesText}>No notes added</Text>
-            )}
-          </>
-        )}
-      </View>
-    </ScrollView>
-  </KeyboardAvoidingView>
-</Modal>
-</View>
-);
+
+                  {isEditingNote ? (
+                    <View style={styles.noteInputContainer}>
+                      <TextInput
+                        style={styles.noteInput}
+                        multiline
+                        placeholder="Enter notes about this seizure..."
+                        value={currentNote}
+                        onChangeText={setCurrentNote}
+                        autoFocus
+                      />
+                      <View style={styles.actionButtonsContainer}>
+                        <View style={styles.noteActionButtons}>
+                          <TouchableOpacity
+                            style={[styles.noteButton, styles.cancelButton]}
+                            onPress={() => setIsEditingNote(false)}
+                          >
+                            <Text style={styles.buttonTextCancel}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.noteButton, styles.saveButton]}
+                            onPress={saveNote}
+                          >
+                            <Text style={styles.buttonTextSave}>Save</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  ) : selectedSeizure.note ? (
+                    <View style={styles.noteContainer}>
+                      <Text style={styles.noteText}>{selectedSeizure.note}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.noNotesText}>No notes added</Text>
+                  )}
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    paddingLeft: 16,
-    paddingRight: 16,
-    top: -15,
-    marginBottom: -30,
+    backgroundColor: '#F9F0FF',
   },
-  title: {
+  headerContainer: {
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    zIndex: 10,
+    backgroundColor: '#F9F0FF',
+    paddingTop: Platform.OS === 'ios' ? 30 : 0,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    height: '100%',
+  },
+  headerTitle: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#2E3A59',
-    marginBottom: 16,
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
   },
   calendarContainer: {
     backgroundColor: '#fff',
@@ -556,13 +604,13 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   buttonTextCancel: {
-  color: '#000',
+    color: '#000',
     fontWeight: '600'
   },
-   buttonTextSave: {
+  buttonTextSave: {
     color: '#fff',
-      fontWeight: '600'
-    },
+    fontWeight: '600'
+  },
   cancelButton: {
     backgroundColor: '#e0e0e0',
   },

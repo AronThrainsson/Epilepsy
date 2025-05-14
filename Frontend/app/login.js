@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { BASE_URL } from '../config';
 import { registerForPushNotificationsAsync } from './services/notificationService';
@@ -88,82 +99,89 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.background}>
-      <View style={styles.container}>
-        {/* Back arrow at top left - now goes to index page */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#4F46E5" />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Login</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        {/* Remember Me Checkbox */}
-        <View style={styles.rememberMeContainer}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.background}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.container}>
           <TouchableOpacity
-            style={styles.checkbox}
-            onPress={() => setRememberMe(!rememberMe)}
+            style={styles.backButton}
+            onPress={() => router.push('/')}
           >
-            {rememberMe ? (
-              <Ionicons name="checkbox" size={24} color="#4F46E5" />
-            ) : (
-              <Ionicons name="square-outline" size={24} color="#4F46E5" />
-            )}
+            <Ionicons name="arrow-back" size={24} color="#4F46E5" />
           </TouchableOpacity>
-          <Text style={styles.rememberMeText}>Remember me</Text>
+
+          <Text style={styles.title}>Login</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+            returnKeyType="next"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
+          />
+
+          {/* Remember Me Checkbox */}
+          <View style={styles.rememberMeContainer}>
+            <TouchableOpacity
+              style={styles.checkbox}
+              onPress={() => setRememberMe(!rememberMe)}
+            >
+              {rememberMe ? (
+                <Ionicons name="checkbox" size={24} color="#4F46E5" />
+              ) : (
+                <Ionicons name="square-outline" size={24} color="#4F46E5" />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.rememberMeText}>Remember me</Text>
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin}>
+            <Text style={styles.buttonText}>Login</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push('/role')}>
+            <Text style={styles.linkText}>Don't have an account? Sign up</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.push('/role')}>
-          <Text style={styles.linkText}>Don't have an account? Sign up</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   background: {
-    position: 'absolute',
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    flex: 1,
     backgroundColor: '#F9F0FF',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
-    flex: 1,
     paddingHorizontal: 30,
-    justifyContent: 'center',
-    marginTop: 90,
+    paddingBottom: 40,
   },
   backButton: {
     position: 'absolute',
-    top: 10,
+    top: Platform.OS === 'ios' ? 60 : 40,
     left: 30,
     zIndex: 1,
   },
@@ -173,6 +191,7 @@ const styles = StyleSheet.create({
     color: '#2E3A59',
     marginBottom: 30,
     textAlign: 'center',
+    marginTop: Platform.OS === 'ios' ? 60 : 40,
   },
   input: {
     backgroundColor: '#fff',
