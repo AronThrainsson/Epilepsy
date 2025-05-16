@@ -65,9 +65,136 @@ export default function Layout() {
           text: 'Logout',
           onPress: async () => {
             try {
-              await AsyncStorage.clear();
+              // First save the current epilepsy user settings
+              const userEmail = await AsyncStorage.getItem('userEmail');
+              const alertOnValue = await AsyncStorage.getItem(`alertOn_${userEmail}`) || await AsyncStorage.getItem('alertOn');
+              
+              // Save all mate-related data
+              let activatedMatesData = null;
+              let formattedMatesData = null;
+              let teamData = null;
+              let persistentTeamData = null;
+              let selectedMatesEmails = null;
+              
+              try {
+                // Get all keys to find mate-related data
+                const allKeys = await AsyncStorage.getAllKeys();
+                console.log('All keys before logout:', allKeys);
+                
+                // Get all mate-related data for this user
+                activatedMatesData = await AsyncStorage.getItem(`activatedMates_${userEmail}`);
+                formattedMatesData = await AsyncStorage.getItem(`formatted_mates_${userEmail}`);
+                teamData = await AsyncStorage.getItem(`team_${userEmail}`);
+                persistentTeamData = await AsyncStorage.getItem(`persistentTeam_${userEmail}`);
+                selectedMatesEmails = await AsyncStorage.getItem(`activatedMatesEmails_${userEmail}`);
+                
+                console.log('Before logout - Saving mate data:', {
+                  activatedMates: activatedMatesData ? 'found' : 'not found',
+                  formattedMates: formattedMatesData ? 'found' : 'not found',
+                  team: teamData ? 'found' : 'not found',
+                  persistentTeam: persistentTeamData ? 'found' : 'not found',
+                  selectedMatesEmails: selectedMatesEmails ? 'found' : 'not found'
+                });
+              } catch (e) {
+                console.warn('Failed to preserve mates data:', e);
+              }
+              
+              // CRITICAL: Create a special logout backup with timestamp
+              const logoutBackupKey = `logoutBackup_${userEmail}_${Date.now()}`;
+              const logoutBackupData = {
+                userEmail,
+                timestamp: Date.now(),
+                activatedMatesData,
+                formattedMatesData,
+                teamData,
+                persistentTeamData,
+                selectedMatesEmails
+              };
+              
+              try {
+                await AsyncStorage.setItem(logoutBackupKey, JSON.stringify(logoutBackupData));
+                console.log('Created logout backup at:', logoutBackupKey);
+              } catch (e) {
+                console.warn('Failed to create logout backup:', e);
+              }
+              
+              // Identify keys to keep (don't delete these during logout)
+              const keysToKeep = [
+                'alertOn', 
+                `alertOn_${userEmail}`,
+                'activatedMates', 
+                `activatedMates_${userEmail}`,
+                `formatted_mates_${userEmail}`,
+                `team_${userEmail}`,
+                `persistentTeam_${userEmail}`,
+                `activatedMatesEmails_${userEmail}`,
+                'persistentTeamSelection',
+                logoutBackupKey // Keep our new backup
+              ];
+              
+              // Also keep all availability keys and team backup keys
+              const allKeys = await AsyncStorage.getAllKeys();
+              const availabilityKeys = allKeys.filter(key => key.startsWith('availability_'));
+              const teamBackupKeys = allKeys.filter(key => 
+                key.startsWith('teamBackup_') || 
+                key.startsWith('logoutBackup_')
+              );
+              
+              const keysToRemove = allKeys.filter(key => 
+                !keysToKeep.includes(key) && 
+                !availabilityKeys.includes(key) &&
+                !teamBackupKeys.includes(key) &&
+                key !== 'availability'
+              );
+              
+              await AsyncStorage.multiRemove(keysToRemove);
+              
+              // Make sure settings are re-saved after clear
+              if (alertOnValue && userEmail) {
+                await AsyncStorage.setItem(`alertOn_${userEmail}`, alertOnValue);
+                await AsyncStorage.setItem('alertOn', alertOnValue);
+                console.log(`Preserved alert settings for ${userEmail}:`, alertOnValue);
+              }
+              
+              // Re-save all mate-related data
+              const savePromises = [];
+              
+              if (activatedMatesData && userEmail) {
+                savePromises.push(AsyncStorage.setItem(`activatedMates_${userEmail}`, activatedMatesData));
+                savePromises.push(AsyncStorage.setItem('activatedMates', activatedMatesData));
+              }
+              
+              if (formattedMatesData && userEmail) {
+                savePromises.push(AsyncStorage.setItem(`formatted_mates_${userEmail}`, formattedMatesData));
+              }
+              
+              if (teamData && userEmail) {
+                savePromises.push(AsyncStorage.setItem(`team_${userEmail}`, teamData));
+              }
+              
+              if (persistentTeamData && userEmail) {
+                savePromises.push(AsyncStorage.setItem(`persistentTeam_${userEmail}`, persistentTeamData));
+                savePromises.push(AsyncStorage.setItem('persistentTeamSelection', persistentTeamData));
+              }
+              
+              if (selectedMatesEmails && userEmail) {
+                savePromises.push(AsyncStorage.setItem(`activatedMatesEmails_${userEmail}`, selectedMatesEmails));
+                savePromises.push(AsyncStorage.setItem('activatedMatesEmails', selectedMatesEmails));
+              }
+              
+              // Wait for all data to be saved
+              await Promise.all(savePromises);
+              console.log(`Preserved all mates data for ${userEmail}`);
+              
+              // Force a flush to ensure everything is written to storage
+              await AsyncStorage.flushGetRequests();
+              
+              // Add a small delay to ensure storage operations complete
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
               router.replace('/login');
             } catch (error) {
+              console.error('Error during logout:', error);
               Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },

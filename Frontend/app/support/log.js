@@ -19,6 +19,7 @@ import { Calendar } from 'react-native-calendars';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { BASE_URL } from '../../config';
 
 const LogScreen = () => {
   const router = useRouter();
@@ -29,6 +30,7 @@ const LogScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [epilepsyUser, setEpilepsyUser] = useState(null);
 
   // Platform-specific header height
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
@@ -53,16 +55,79 @@ const LogScreen = () => {
   };
 
   useEffect(() => {
-    loadSeizures();
+    fetchTeamAndSeizures();
   }, []);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadSeizures();
-    setRefreshing(false);
+  const fetchTeamAndSeizures = async () => {
+    try {
+      setRefreshing(true);
+      const email = await AsyncStorage.getItem('userEmail');
+      if (!email) {
+        setRefreshing(false);
+        return;
+      }
+
+      // First get the team info to find which epilepsy user this support user is assigned to
+      const teamResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(email)}/team?timestamp=${Date.now()}`);
+      
+      if (!teamResponse.ok) {
+        console.warn('Could not load team data');
+        setRefreshing(false);
+        return;
+      }
+
+      const teamData = await teamResponse.json();
+      console.log('Team data from API:', teamData);
+      
+      if (teamData && teamData.epilepsyUser) {
+        setEpilepsyUser(teamData.epilepsyUser);
+        // Now fetch seizures for this epilepsy user
+        await fetchSeizures(teamData.epilepsyUser.email);
+      } else {
+        console.warn('No epilepsy user assigned to this support user');
+      }
+      
+      setRefreshing(false);
+    } catch (err) {
+      console.error('Error loading team and seizures:', err);
+      setRefreshing(false);
+    }
   };
 
-  const filteredSeizures = seizures.filter(seizure => seizure.date === selectedDate);
+  const fetchSeizures = async (epilepsyUserEmail) => {
+    if (!epilepsyUserEmail) return;
+    
+    try {
+      const response = await fetch(`${BASE_URL}/api/seizures?epilepsyUserEmail=${epilepsyUserEmail}`);
+      if (!response.ok) {
+        console.warn('Failed to fetch seizures');
+        return;
+      }
+      
+      const data = await response.json();
+      console.log(`Loaded ${data.length} seizures for ${epilepsyUserEmail}`);
+
+      const parsed = data.map(seizure => {
+        const timestamp = new Date(seizure.timestamp);
+        return {
+          ...seizure,
+          date: timestamp.toISOString().split('T')[0],
+          time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          duration: seizure.duration || 1,
+          movement: seizure.movement || 'Unknown'
+        };
+      });
+
+      setSeizures(parsed);
+    } catch (err) {
+      console.error('Error loading seizures:', err);
+      Alert.alert('Error', 'Failed to load seizures. Please try again later.');
+    }
+  };
+
+  const onRefresh = async () => {
+    await fetchTeamAndSeizures();
+  };
 
   const handleDayPress = (day) => {
     setSelectedDate(day.dateString);
@@ -70,6 +135,8 @@ const LogScreen = () => {
 
   const handleSeizurePress = (seizure) => {
     setSelectedSeizure(seizure);
+    setCurrentNote(seizure.note || '');
+    setIsEditingNote(true);
     setModalVisible(true);
   };
 
@@ -82,16 +149,24 @@ const LogScreen = () => {
     if (!selectedSeizure) return;
 
     try {
-      const updatedSeizures = seizures.map(seizure =>
-        seizure.id === selectedSeizure.id ? { ...seizure, note: currentNote } : seizure
-      );
+      const response = await fetch(`${BASE_URL}/api/seizures/${selectedSeizure.id}/note`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ note: currentNote }),
+      });
 
-      await AsyncStorage.setItem('seizures', JSON.stringify(updatedSeizures));
-      setSeizures(updatedSeizures);
-      setSelectedSeizure({...selectedSeizure, note: currentNote});
-      setIsEditingNote(false);
+      if (!response.ok) throw new Error('Failed to update note');
+
+      // Update local state
+      setSeizures(seizures.map(s => 
+        s.id === selectedSeizure.id ? { ...s, note: currentNote } : s
+      ));
+      setModalVisible(false);
     } catch (error) {
       console.error('Error saving note:', error);
+      Alert.alert('Error', 'Failed to save note. Please try again later.');
     }
   };
 
@@ -156,14 +231,21 @@ const LogScreen = () => {
     }
   };
 
+  const filteredSeizures = seizures.filter(seizure => seizure.date === selectedDate);
+
   const renderSeizureItem = ({ item }) => (
     <TouchableOpacity
       style={styles.seizureItem}
       onPress={() => handleSeizurePress(item)}
     >
-      <Text style={styles.seizureTime}>{item.time || 'Unknown time'}</Text>
-      <Text style={styles.seizureDuration}>{item.duration} minutes</Text>
-      <Text style={styles.seizureType}>{item.movement || 'Unknown type'}</Text>
+      <View style={styles.seizureItemContent}>
+        <Text style={styles.seizureTime}>Time: {item.time || 'Unknown time'}</Text>
+        <View style={styles.seizureStats}>
+          <Text style={styles.statText}>❤️ {item.heartRate || '--'} bpm</Text>
+          <Text style={styles.statText}>🫁 {item.spO2 || '--'}%</Text>
+          <Text style={styles.statText}>🏃‍♂️ {item.movement || 'Unknown'}</Text>
+        </View>
+      </View>
       {item.note && <Feather name="file-text" size={16} color="#4F46E5" style={styles.noteIndicator} />}
     </TouchableOpacity>
   );
@@ -193,20 +275,48 @@ const LogScreen = () => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {epilepsyUser && (
+            <View style={styles.patientInfoContainer}>
+              <Text style={styles.patientName}>
+                {epilepsyUser.firstName} {epilepsyUser.surname || ''}'s Seizure Log
+              </Text>
+            </View>
+          )}
+
           <View style={styles.calendarContainer}>
             <Calendar
               onDayPress={handleDayPress}
               markedDates={{
-                [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
                 ...seizures.reduce((acc, seizure) => {
-                  acc[seizure.date] = { marked: true, dotColor: '#4F46E5' };
+                  // For dates with seizures
+                  if (seizure.date === selectedDate) {
+                    // If this date is selected AND has seizures
+                    acc[seizure.date] = { 
+                      selected: true, 
+                      selectedColor: '#9747FF',
+                      marked: true,
+                      dotColor: 'white'
+                    };
+                  } else {
+                    // If this date has seizures but is not selected
+                    acc[seizure.date] = { 
+                      marked: true, 
+                      dotColor: '#9747FF' 
+                    };
+                  }
                   return acc;
-                }, {})
+                }, {}),
+                // For selected date without seizures (if it's not already in the accumulator)
+                ...(seizures.find(s => s.date === selectedDate) ? {} : {
+                  [selectedDate]: { selected: true, selectedColor: '#9747FF' }
+                })
               }}
               theme={{
-                selectedDayBackgroundColor: '#4F46E5',
-                todayTextColor: '#4F46E5',
-                arrowColor: '#4F46E5',
+                selectedDayBackgroundColor: '#9747FF',
+                todayTextColor: '#9747FF',
+                arrowColor: '#9747FF',
+                dotColor: '#9747FF',
+                textDayFontWeight: '600',
               }}
               style={styles.calendar}
             />
@@ -233,22 +343,6 @@ const LogScreen = () => {
                 <Text style={styles.noSeizuresText}>No seizures recorded for this date</Text>
               </View>
             )}
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.smallButton, styles.sampleButton]}
-                onPress={addSampleData}
-              >
-                <Text style={styles.buttonText}>Add Sample</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.smallButton, styles.addButton]}
-                onPress={() => router.push('/add-seizure')}
-              >
-                <Text style={styles.buttonText}>Add Seizure</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -401,13 +495,13 @@ const styles = StyleSheet.create({
   calendarContainer: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 8,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
   calendar: {
     height: 300,
@@ -418,45 +512,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#2E3A59',
+    fontWeight: '700',
     marginBottom: 16,
+    color: '#2E3A59',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   listContent: {
     paddingBottom: 16,
   },
   seizureItem: {
-    backgroundColor: '#F8FAFC',
-    padding: 15,
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
+    padding: 12,
     marginBottom: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  seizureItemContent: {
+    flex: 1,
   },
   seizureTime: {
     fontWeight: '500',
     color: '#2E3A59',
-    flex: 1,
+    fontSize: 15,
+    marginBottom: 4,
   },
-  seizureDuration: {
+  seizureStats: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  statText: {
     color: '#4F46E5',
     fontWeight: '500',
-    flex: 1,
-    textAlign: 'center',
-  },
-  seizureType: {
-    color: '#64748B',
-    flex: 1,
-    textAlign: 'right',
+    marginRight: 12,
+    fontSize: 14,
   },
   noteIndicator: {
     marginLeft: 8,
@@ -470,34 +576,6 @@ const styles = StyleSheet.create({
   noSeizuresText: {
     color: '#64748B',
     fontSize: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-  },
-  smallButton: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    width: '48%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addButton: {
-    backgroundColor: '#CB97F0',
-  },
-  sampleButton: {
-    backgroundColor: '#64748B',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
   },
   modalContainer: {
     flex: 1,
@@ -595,6 +673,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   closeIcon: {
     position: 'absolute',
@@ -616,6 +699,25 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#CB97F0',
+  },
+  patientInfoContainer: {
+    backgroundColor: '#F9F0FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CB97F0',
+  },
+  patientName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2E3A59',
   },
 });
 

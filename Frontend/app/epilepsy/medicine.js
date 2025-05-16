@@ -10,11 +10,20 @@ import {
   Platform,
   Switch,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from '../../config';
+import { 
+  registerForPushNotifications, 
+  savePushToken,
+  showMedicationAddedConfirmation,
+  scheduleAllMedicationNotifications,
+  scheduleMedicationNotification
+} from '../services/notificationService';
 
 const MedicationPage = () => {
   const [medicines, setMedicines] = useState([]);
@@ -24,47 +33,179 @@ const MedicationPage = () => {
   const [dose, setDose] = useState('');
   const [time, setTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
 
   // Platform-specific header height
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
+  // Load userId and userEmail on component mount and setup notifications
   useEffect(() => {
-    const loadMedications = async () => {
+    const initialize = async () => {
       try {
-        const savedMeds = await AsyncStorage.getItem('medications');
-        if (savedMeds) {
-          const parsedMeds = JSON.parse(savedMeds);
-          const medsWithToggle = parsedMeds.map(med => ({
-            ...med,
-            enabled: med.enabled !== undefined ? med.enabled : true
-          }));
-          setMedicines(medsWithToggle);
-        } else {
-          const defaultMeds = [
-            { id: '1', name: 'Epilex', dose: '200mg', time: '08:00', enabled: true },
-            { id: '2', name: 'Keppra', dose: '500mg', time: '20:00', enabled: true },
-          ];
-          setMedicines(defaultMeds);
-          await AsyncStorage.setItem('medications', JSON.stringify(defaultMeds));
+        // Get user ID
+        const id = await AsyncStorage.getItem('userId');
+        // Get user email (important for user-specific medications)
+        const email = await AsyncStorage.getItem('userEmail');
+        
+        if (email) {
+          setUserEmail(email);
+          console.log('Using email for medications:', email);
         }
+        
+        if (id) {
+          setUserId(id);
+          
+          // Request notification permissions and setup push token
+          const token = await registerForPushNotifications();
+          if (token) {
+            await savePushToken(id, token);
+            console.log('Push token saved:', token);
+          }
+          
+          // Try to load medications from userId-based storage (persists across logins)
+          const userIdKey = `medications_userId_${id}`;
+          const savedMeds = await AsyncStorage.getItem(userIdKey);
+          if (savedMeds) {
+            const parsedMeds = JSON.parse(savedMeds);
+            console.log(`Loaded ${parsedMeds.length} medications from user ID storage`);
+            setMedicines(parsedMeds);
+            
+            // If we have an email, also save to email-based storage
+            if (email) {
+              const emailKey = `medications_${email}`;
+              await AsyncStorage.setItem(emailKey, JSON.stringify(parsedMeds));
+              console.log(`Synced medications to ${emailKey}`);
+            }
+            
+            setIsLoading(false);
+            return; // Skip other loading if we already have data
+          }
+        } else {
+          // Generate a local ID if no user ID exists
+          const localId = `local_${Date.now()}`;
+          await AsyncStorage.setItem('userId', localId);
+          setUserId(localId);
+          console.log('Created local user ID:', localId);
+        }
+        
+        // Load medications immediately from local storage
+        await loadFromLocalStorage(email);
       } catch (error) {
-        console.error('Failed to load medications', error);
+        console.error('Initialization error:', error);
+        // Still try to load from local storage
+        await loadFromLocalStorage();
       }
     };
-    loadMedications();
+    
+    initialize();
   }, []);
 
+  // Load medications - try server first, then fall back to local
   useEffect(() => {
-    const saveMedications = async () => {
-      try {
-        await AsyncStorage.setItem('medications', JSON.stringify(medicines));
-      } catch (error) {
-        console.error('Failed to save medications', error);
+    if (userId && userEmail) {
+      fetchMedications();
+    }
+  }, [userId, userEmail]);
+
+  const loadFromLocalStorage = async (email = null) => {
+    try {
+      const userEmailToUse = email || userEmail;
+      if (!userEmailToUse) {
+        console.log('No user email available for loading medications');
+        setMedicines([]);
+        setIsLoading(false);
+        return;
       }
-    };
-    saveMedications();
-  }, [medicines]);
+      
+      // Use user-specific storage key
+      const storageKey = `medications_${userEmailToUse}`;
+      const savedMeds = await AsyncStorage.getItem(storageKey);
+      
+      if (savedMeds) {
+        const parsedMeds = JSON.parse(savedMeds);
+        console.log(`Loaded ${parsedMeds.length} medications for ${userEmailToUse} from local storage`);
+        setMedicines(parsedMeds);
+        
+        // Schedule notifications for loaded medications
+        scheduleAllMedicationNotifications(parsedMeds)
+          .then(updatedMeds => {
+            if (updatedMeds && updatedMeds.length > 0) {
+              console.log('Updated medications with notification IDs');
+              setMedicines(updatedMeds);
+              // Save the updated medications with notification IDs
+              AsyncStorage.setItem(storageKey, JSON.stringify(updatedMeds));
+            }
+          })
+          .catch(err => console.error('Error scheduling notifications:', err));
+      } else {
+        console.log(`No medications found for ${userEmailToUse} in local storage`);
+        setMedicines([]);
+      }
+    } catch (error) {
+      console.error('Failed to load from local storage:', error);
+      setMedicines([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchMedications = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Always load from local storage first for immediate display
+      await loadFromLocalStorage();
+      
+      // Then try to get from server
+      try {
+        console.log(`Fetching medications from server for user ${userId}...`);
+        const response = await fetch(`${BASE_URL}/api/medications/user/${userId}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Successfully loaded medications from server:', data.length);
+          
+          // Add user email to each medication for user-specific storage
+          const userMedications = data.map(med => ({
+            ...med,
+            userEmail: userEmail // Add user email to each medication
+          }));
+          
+          setMedicines(userMedications);
+          
+          // Save server data to user-specific local storage
+          if (userEmail) {
+            const storageKey = `medications_${userEmail}`;
+            await AsyncStorage.setItem(storageKey, JSON.stringify(userMedications));
+            console.log(`Saved medications to ${storageKey}`);
+            
+            // Schedule notifications for these medications
+            scheduleAllMedicationNotifications(userMedications)
+              .then(updatedMeds => {
+                if (updatedMeds && updatedMeds.length > 0) {
+                  console.log('Updated medications with notification IDs');
+                  setMedicines(updatedMeds);
+                  // Save the updated medications with notification IDs
+                  AsyncStorage.setItem(storageKey, JSON.stringify(updatedMeds));
+                }
+              });
+          }
+        } else {
+          console.log('Server returned error, using local data:', response.status);
+          setIsOfflineMode(true);
+        }
+      } catch (error) {
+        console.log('Network error, using local data:', error.message);
+        setIsOfflineMode(true);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedMedicine) {
@@ -85,38 +226,227 @@ const MedicationPage = () => {
   }, [selectedMedicine]);
 
   const handleSave = async () => {
+    // Format time
     const hours = time.getHours().toString().padStart(2, '0');
     const minutes = time.getMinutes().toString().padStart(2, '0');
     const formattedTime = `${hours}:${minutes}`;
 
-    const updatedMedicine = {
-      id: selectedMedicine?.id || Date.now().toString(),
+    // Create medication object with user email
+    const medicationInfo = {
+      id: selectedMedicine?.id || `local_${Date.now()}`,
+      userId: userId,
+      userEmail: userEmail, // Add user email for user-specific storage
       name,
       dose,
       time: formattedTime,
       enabled: selectedMedicine ? selectedMedicine.enabled : true
     };
 
+    console.log('Saving medication:', medicationInfo);
+
+    // Update local state first (optimistic update)
     if (selectedMedicine) {
-      setMedicines(medicines.map(m => (m.id === updatedMedicine.id ? updatedMedicine : m)));
+      setMedicines(prevMedicines => 
+        prevMedicines.map(m => (m.id === medicationInfo.id ? medicationInfo : m))
+      );
     } else {
-      setMedicines([...medicines, updatedMedicine]);
+      setMedicines(prevMedicines => [...prevMedicines, medicationInfo]);
     }
+    
+    // IMPROVED APPROACH: Always try to save to the server first
+    let savedToServer = false;
+    
+    try {
+      if (userId) {
+        console.log('Attempting to save to server first...');
+        const response = await fetch(`${BASE_URL}/api/medications/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(medicationInfo),
+        });
+
+        if (response.ok) {
+          console.log('Successfully saved to server');
+          savedToServer = true;
+          
+          try {
+            const savedMedication = await response.json();
+            if (savedMedication && savedMedication.id) {
+              // Update with server-generated ID
+              medicationInfo.id = savedMedication.id;
+              
+              // Update state with server data
+              setMedicines(prevMeds => 
+                prevMeds.map(m => m.id === (selectedMedicine?.id || medicationInfo.id) 
+                  ? {...savedMedication, userEmail} 
+                  : m
+                )
+              );
+            }
+          } catch (parseError) {
+            console.log('Could not parse server response, but save was successful');
+          }
+        } else {
+          const errorText = await response.text();
+          console.error('Server error:', errorText);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving to server:', error);
+    }
+    
+    // Always save to user-specific local storage as backup
+    try {
+      if (!userEmail) {
+        console.error('Cannot save medication: No user email available');
+        setIsModalVisible(false);
+        return;
+      }
+      
+      // Save to multiple storage locations for redundancy
+      const storageKey = `medications_${userEmail}`;
+      const updatedMedicines = selectedMedicine
+        ? medicines.map(m => (m.id === medicationInfo.id ? medicationInfo : m))
+        : [...medicines, medicationInfo];
+      
+      // Save to user-specific key
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updatedMedicines));
+      console.log(`Medication saved to ${storageKey}`);
+      
+      // Also save to userId-based key for persistence across logins
+      if (userId) {
+        const userIdKey = `medications_userId_${userId}`;
+        await AsyncStorage.setItem(userIdKey, JSON.stringify(updatedMedicines));
+        console.log(`Medication also saved to ${userIdKey} for persistence`);
+      }
+      
+      // Show one-time notification
+      showMedicationAddedConfirmation(medicationInfo);
+      
+    } catch (storageError) {
+      console.error('Failed to save to local storage:', storageError);
+    }
+    
+    // Close modal
     setIsModalVisible(false);
   };
 
-  const handleDelete = () => {
-    if (selectedMedicine) {
-      setMedicines(medicines.filter(m => m.id !== selectedMedicine.id));
-      setIsModalVisible(false);
+  const handleDelete = async () => {
+    if (!selectedMedicine) return;
+    
+    // Delete locally first
+    const updatedMedicines = medicines.filter(m => m.id !== selectedMedicine.id);
+    setMedicines(updatedMedicines);
+    
+    try {
+      // Cancel any scheduled notification
+      if (selectedMedicine.notificationId) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(selectedMedicine.notificationId);
+          console.log(`Cancelled notification: ${selectedMedicine.notificationId}`);
+        } catch (notifError) {
+          console.error('Error cancelling notification:', notifError);
+        }
+      }
+      
+      // Update user-specific local storage
+      if (userEmail) {
+        const storageKey = `medications_${userEmail}`;
+        await AsyncStorage.setItem(storageKey, JSON.stringify(updatedMedicines));
+        console.log(`Medication deleted from ${storageKey}`);
+      }
+      
+      // Try to delete from server if online
+      if (!isOfflineMode && userId) {
+        try {
+          await fetch(`${BASE_URL}/api/medications/delete/${userId}/${selectedMedicine.id}`, {
+            method: 'DELETE',
+          });
+          console.log('Medication deleted from server');
+        } catch (error) {
+          console.log('Failed to delete from server, but deleted locally');
+        }
+      }
+    } catch (error) {
+      console.error('Error during medication deletion:', error);
     }
+    
+    // Close modal
+    setIsModalVisible(false);
   };
 
-  const toggleMedication = (id) => {
-    const updatedMeds = medicines.map(med =>
-      med.id === id ? { ...med, enabled: !med.enabled } : med
-    );
-    setMedicines(updatedMeds);
+  const toggleMedication = async (id) => {
+    const medicationToUpdate = medicines.find(med => med.id === id);
+    if (!medicationToUpdate) return;
+
+    const updatedMedication = {
+      ...medicationToUpdate,
+      enabled: !medicationToUpdate.enabled
+    };
+
+    // Update locally first
+    const updatedMedicines = medicines.map(med => med.id === id ? updatedMedication : med);
+    setMedicines(updatedMedicines);
+    
+    try {
+      // Update notification status based on enabled state
+      if (updatedMedication.enabled) {
+        try {
+          // Schedule notification if enabled
+          console.log('Scheduling notification for toggled medication');
+          const notificationId = await scheduleMedicationNotification(updatedMedication);
+          if (notificationId) {
+            updatedMedication.notificationId = notificationId;
+            console.log('Notification scheduled with ID:', notificationId);
+          }
+        } catch (notifError) {
+          console.error('Error scheduling notification:', notifError);
+        }
+      } else if (updatedMedication.notificationId) {
+        try {
+          // Import Notifications directly to avoid the reference error
+          const Notifications = require('expo-notifications');
+          
+          // Cancel notification if disabled
+          await Notifications.cancelScheduledNotificationAsync(updatedMedication.notificationId);
+          console.log(`Cancelled notification: ${updatedMedication.notificationId}`);
+          delete updatedMedication.notificationId;
+        } catch (notifError) {
+          console.error('Error cancelling notification:', notifError);
+        }
+      }
+      
+      // Update user-specific local storage
+      if (userEmail) {
+        const storageKey = `medications_${userEmail}`;
+        const finalUpdatedMedicines = medicines.map(med => med.id === id ? updatedMedication : med);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(finalUpdatedMedicines));
+        console.log(`Medication toggle saved to ${storageKey}`);
+        
+        // Also update userId-based storage for persistence
+        if (userId) {
+          const userIdKey = `medications_userId_${userId}`;
+          await AsyncStorage.setItem(userIdKey, JSON.stringify(finalUpdatedMedicines));
+          console.log(`Medication toggle also saved to ${userIdKey}`);
+        }
+      }
+      
+      // Try to update server if online
+      if (!isOfflineMode && userId) {
+        try {
+          await fetch(`${BASE_URL}/api/medications/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedMedication),
+          });
+          console.log('Medication toggle saved to server');
+        } catch (error) {
+          console.log('Failed to update server, but updated locally');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling medication:', error);
+    }
   };
 
   const onTimeChange = (event, selectedTime) => {
@@ -155,32 +485,46 @@ const MedicationPage = () => {
         style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
         contentContainerStyle={styles.scrollContent}
       >
-        {medicines.map((item) => (
-          <View key={item.id} style={[
-            styles.medicineItemContainer,
-            !item.enabled && styles.disabledMedicine
-          ]}>
-            <TouchableOpacity
-              style={styles.medicineButton}
-              onPress={() => {
-                setSelectedMedicine(item);
-                setIsModalVisible(true);
-              }}
-            >
-              <View style={styles.medicineInfo}>
-                <Text style={styles.medicineName}>{item.name}</Text>
-                <Text style={styles.medicineDetails}>{item.dose} • {item.time}</Text>
-              </View>
-            </TouchableOpacity>
-            <Switch
-              value={item.enabled}
-              onValueChange={() => toggleMedication(item.id)}
-              trackColor={{ false: "#767577", true: "#32BF55" }}
-              thumbColor={item.enabled ? "#ffffff" : "#f4f3f4"}
-              ios_backgroundColor="#3e3e3e"
-            />
-          </View>
-        ))}
+        {isLoading ? (
+          <Text style={styles.loadingText}>Loading medications...</Text>
+        ) : !userEmail ? (
+          <Text style={styles.errorText}>Please log in to manage medications</Text>
+        ) : medicines.length === 0 ? (
+          <Text style={styles.emptyText}>No medications added yet</Text>
+        ) : (
+          medicines.map((item) => (
+            <View key={item.id} style={[
+              styles.medicineItemContainer,
+              !item.enabled && styles.disabledMedicine
+            ]}>
+              <TouchableOpacity
+                style={styles.medicineButton}
+                onPress={() => {
+                  setSelectedMedicine(item);
+                  setIsModalVisible(true);
+                }}
+              >
+                <View style={styles.medicineInfo}>
+                  <Text style={styles.medicineName}>{item.name}</Text>
+                  <Text style={styles.medicineDetails}>{item.dose} • {item.time}</Text>
+                </View>
+              </TouchableOpacity>
+              <Switch
+                value={item.enabled}
+                onValueChange={() => toggleMedication(item.id)}
+                trackColor={{ false: "#767577", true: "#32BF55" }}
+                thumbColor={item.enabled ? "#ffffff" : "#f4f3f4"}
+                ios_backgroundColor="#3e3e3e"
+              />
+            </View>
+          ))
+        )}
+        
+        {isOfflineMode && (
+          <Text style={styles.offlineText}>
+            Working in offline mode. Your changes will be saved locally.
+          </Text>
+        )}
       </ScrollView>
 
       <Modal
@@ -414,7 +758,33 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16
-  }
+  },
+  loadingText: {
+    textAlign: 'center',
+    marginTop: 30,
+    fontSize: 16,
+    color: '#666'
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#666'
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#FF3B30'
+  },
+  offlineText: {
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
 });
 
 export default MedicationPage;

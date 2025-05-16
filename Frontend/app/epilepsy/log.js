@@ -104,8 +104,14 @@ const LogScreen = () => {
 
   const renderSeizureItem = ({ item }) => (
     <TouchableOpacity style={styles.seizureItem} onPress={() => handleSeizurePress(item)}>
-      <Text style={styles.seizureTime}>Time: {item.time || 'Unknown time'}</Text>
-      <Feather name="chevron-right" size={20} color="#4F46E5" />
+      <View style={styles.seizureItemContent}>
+        <Text style={styles.seizureTime}>Time: {item.time || 'Unknown time'}</Text>
+        <View style={styles.seizureStats}>
+          <Text style={styles.statText}>❤️ {item.heartRate} bpm</Text>
+          <Text style={styles.statText}>🫁 {item.spO2}%</Text>
+          <Text style={styles.statText}>🏃‍♂️ {item.movement}</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -129,31 +135,60 @@ const LogScreen = () => {
         style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
         contentContainerStyle={styles.scrollContent}
       >
-        <Calendar
-          onDayPress={handleDayPress}
-          markedDates={{
-            [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
-            ...seizures.reduce((acc, s) => {
-              acc[s.date] = { marked: true, dotColor: '#4F46E5' };
-              return acc;
-            }, {})
-          }}
-          theme={{
-            selectedDayBackgroundColor: '#4F46E5',
-            todayTextColor: '#4F46E5',
-            arrowColor: '#4F46E5',
-          }}
-          style={styles.calendar}
-        />
+        <View style={styles.calendarContainer}>
+          <Calendar
+            onDayPress={handleDayPress}
+            markedDates={{
+              ...seizures.reduce((acc, s) => {
+                // For dates with seizures
+                if (s.date === selectedDate) {
+                  // If this date is selected AND has seizures
+                  acc[s.date] = { 
+                    selected: true, 
+                    selectedColor: '#9747FF',
+                    marked: true,
+                    dotColor: 'white'
+                  };
+                } else {
+                  // If this date has seizures but is not selected
+                  acc[s.date] = { 
+                    marked: true, 
+                    dotColor: '#9747FF' 
+                  };
+                }
+                return acc;
+              }, {}),
+              // For selected date without seizures (if it's not already in the accumulator)
+              ...(seizures.find(s => s.date === selectedDate) ? {} : {
+                [selectedDate]: { selected: true, selectedColor: '#9747FF' }
+              })
+            }}
+            theme={{
+              selectedDayBackgroundColor: '#9747FF',
+              todayTextColor: '#9747FF',
+              arrowColor: '#9747FF',
+              dotColor: '#9747FF',
+              textDayFontWeight: '600',
+            }}
+            style={styles.calendar}
+          />
+        </View>
 
-        <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
-        <FlatList
-          data={filteredSeizures}
-          keyExtractor={(item, i) => `${item.timestamp}-${i}`}
-          renderItem={renderSeizureItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={styles.listContent}
-        />
+        <View style={styles.seizuresContainer}>
+          <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
+          <FlatList
+            data={filteredSeizures}
+            keyExtractor={(item, i) => `${item.timestamp}-${i}`}
+            renderItem={renderSeizureItem}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.noSeizuresText}>No seizures recorded for this date</Text>
+              </View>
+            }
+          />
+        </View>
 
         <Modal
           visible={modalVisible}
@@ -166,32 +201,56 @@ const LogScreen = () => {
             style={styles.modalContainer}
           >
             <View style={styles.modalBackground}>
-              <ScrollView contentContainerStyle={styles.modalContent}>
-                <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
+              <View style={styles.modalContent}>
+                <TouchableOpacity 
+                  style={styles.closeIcon} 
+                  onPress={() => {
+                    setModalVisible(false);
+                    setNote('');
+                    setSelectedSeizure(null);
+                  }}
+                >
                   <Feather name="x" size={24} color="#4F46E5" />
                 </TouchableOpacity>
                 {selectedSeizure && (
                   <>
                     <Text style={styles.modalTitle}>Seizure Details</Text>
-                    <Text>Date: {selectedSeizure.date}</Text>
-                    <Text>Time: {selectedSeizure.time}</Text>
-                    <Text>Duration: {selectedSeizure.duration} minutes</Text>
-                    <Text>Heart Rate: {selectedSeizure.heartRate} bpm</Text>
-                    <Text>SpO2: {selectedSeizure.spO2}%</Text>
-                    <Text>Movement: {selectedSeizure.movement}</Text>
-                    <TextInput
-                      style={styles.noteInput}
-                      value={note}
-                      onChangeText={setNote}
-                      multiline
-                      placeholder="Add your notes here..."
-                    />
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Date:</Text>
+                      <Text style={styles.detailValue}>{selectedSeizure.date}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Time:</Text>
+                      <Text style={styles.detailValue}>{selectedSeizure.time}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Heart Rate:</Text>
+                      <Text style={styles.detailValue}>{selectedSeizure.heartRate} bpm</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Blood Oxygen:</Text>
+                      <Text style={styles.detailValue}>{selectedSeizure.spO2}%</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Movement Level:</Text>
+                      <Text style={styles.detailValue}>{selectedSeizure.movement}</Text>
+                    </View>
+                    <View style={styles.notesSection}>
+                      <Text style={styles.detailLabel}>Notes:</Text>
+                      <TextInput
+                        style={styles.noteInput}
+                        value={note}
+                        onChangeText={setNote}
+                        multiline
+                        placeholder="Add your notes here..."
+                      />
+                    </View>
                     <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
                       <Text style={styles.saveButtonText}>Save Note</Text>
                     </TouchableOpacity>
                   </>
                 )}
-              </ScrollView>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </Modal>
@@ -221,8 +280,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff'
+    paddingHorizontal: 2,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -232,22 +290,39 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2E3A59',
   },
-  calendar: {
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
     marginBottom: 16,
-    margin: 16,
-    borderRadius: 10,
-    overflow: 'hidden',
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 12,
     color: '#2E3A59',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  seizuresContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   listContent: {
     paddingBottom: 20
@@ -257,9 +332,25 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  seizureItemContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  seizureStats: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statText: {
+    fontSize: 12,
+    color: '#4F46E5',
   },
   seizureTime: {
     fontWeight: 'bold',
@@ -272,7 +363,7 @@ const styles = StyleSheet.create({
   },
   modalBackground: {
     flex: 1,
-    marginTop: 150,
+    marginTop: 50,
     justifyContent: 'center'
   },
   modalContent: {
@@ -292,7 +383,9 @@ const styles = StyleSheet.create({
   closeIcon: {
     position: 'absolute',
     top: 16,
-    right: 16
+    right: 16,
+    zIndex: 1,
+    padding: 8,
   },
   noteInput: {
     borderWidth: 1,
@@ -313,6 +406,45 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontWeight: '600',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  detailLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  notesSection: {
+    marginTop: 16,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noSeizuresText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4B5563',
+  },
+  calendar: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
 });
 

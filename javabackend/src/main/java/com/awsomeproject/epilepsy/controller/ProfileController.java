@@ -1,6 +1,7 @@
 package com.awsomeproject.epilepsy.controller;
 
 import com.awsomeproject.epilepsy.services.ProfileService;
+import com.awsomeproject.epilepsy.services.infoObjects.PushTokenInfo;
 import com.awsomeproject.epilepsy.services.infoObjects.UserInfo;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,5 +32,16 @@ public class ProfileController {
             return ResponseEntity.status(500).body(null); // HttpstatusCode 500 = InternalServerError
 
         return ResponseEntity.ok(null);
+    }
+    
+    @PostMapping("/updatePushToken")
+    public ResponseEntity<String> updatePushToken(@RequestBody PushTokenInfo pushTokenInfo) {
+        boolean success = profileService.updatePushToken(pushTokenInfo.userId, pushTokenInfo.pushToken);
+        
+        if (!success) {
+            return ResponseEntity.status(500).body("Failed to update push token");
+        }
+        
+        return ResponseEntity.ok("Push token updated successfully");
     }
 }

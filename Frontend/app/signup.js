@@ -73,11 +73,28 @@ export default function Signup() {
         throw new Error(data.message || 'Signup failed');
       }
 
-      // Store user data
+      // Get the user ID from login
+      const loginResponse = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password
+        }),
+      });
+      
+      const loginData = await loginResponse.json();
+      
+      if (!loginResponse.ok) {
+        throw new Error('Account created but failed to get user ID');
+      }
+      
+      // Store user data including the user ID which is crucial for profile pages
       await AsyncStorage.multiSet([
         ['userEmail', email],
         ['userRole', role],
-        ['authToken', data.token || '']
+        ['authToken', data.token || ''],
+        ['userId', loginData.userInfo.id.toString()]  // Store user ID for profile operations
       ]);
 
       // Register for push notifications
