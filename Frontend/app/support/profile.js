@@ -191,25 +191,6 @@ export default function Profile() {
                 <Text style={styles.buttonText}>{isEditingProfile ? 'Save' : 'Edit Profile'}</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.subtitle}>During seizures:</Text>
-
-            <ProfileInput
-              label="Emergency Information"
-              initialValue={user.infoDuringSeazure}
-              placeholder="Information to display during a seizure"
-              editable={isEditingSeazureInfo}
-              onValueChange={(value) => handleFieldChange('infoDuringSeazure', value)}
-            />
-
-            <View style={styles.editSection}>
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: isEditingSeazureInfo ? '#10B981' : '#CB97F0' }]}
-                onPress={isEditingSeazureInfo ? handleSave : () => setIsEditingSeazureInfo(true)}
-              >
-                <Text style={styles.buttonText}>{isEditingSeazureInfo ? 'Save' : 'Edit Seizure Info'}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
