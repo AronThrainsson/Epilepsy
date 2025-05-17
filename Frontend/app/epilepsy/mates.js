@@ -280,17 +280,17 @@ export default function SupportScreen() {
     }
   };
 
-  const handleBackToHome = async () => {
+  const handleBackToHome = () => {
+    // Navigate immediately
+    router.push('/epilepsy');
+    
+    // Save data in the background after navigation
     if (epilepsyEmail && selected) {
-      // Save before navigating
-      await saveTeamData(selected);
-      
-      // Small delay to ensure data is saved
       setTimeout(() => {
-        router.push('/epilepsy');
-      }, 100);
-    } else {
-      router.push('/epilepsy');
+        saveTeamData(selected).catch(error => {
+          console.warn('Error saving team data in background:', error);
+        });
+      }, 0);
     }
   };
 
