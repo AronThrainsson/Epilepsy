@@ -177,518 +177,124 @@ export default function Home() {
   // Define fetchTeam first, without dependencies on debouncedFetchTeam
   const fetchTeam = React.useCallback(async () => {
     try {
-      // Prevent duplicate fetches or too frequent fetches
-      if (isFetchingRef.current) {
-        console.log('Already fetching team data, skipping duplicate fetch');
-        return;
-      }
-      
-      // Don't fetch more often than every 5 seconds unless it's a manual refresh
-      const now = Date.now();
-      if (now - lastFetchTimeRef.current < 5000 && !refreshing) {
-        console.log('Fetch attempted too soon after previous fetch, skipping');
-        return;
-      }
-      
-      // Mark that we're fetching and update timestamp
-      isFetchingRef.current = true;
-      lastFetchTimeRef.current = now;
-      
-      if (!userEmail) {
         const email = await AsyncStorage.getItem('userEmail');
         if (!email) {
-          console.error('No user email found in AsyncStorage');
-          isFetchingRef.current = false;
+        console.warn('No user email found');
           return;
-        }
-        setUserEmail(email);
       }
 
-      console.log('Fetching team data for support user:', userEmail);
+      console.log(`Fetching teams for support user: ${email}`);
       setIsLoading(true);
       
-      // First load the saved availability to ensure we use the correct value
-      let savedAvailability = isAvailable;
-      try {
-        // Try user-specific availability key
-        const storedAvailability = await AsyncStorage.getItem(`availability_${userEmail}`);
-        if (storedAvailability !== null) {
-          savedAvailability = JSON.parse(storedAvailability);
-          console.log(`Using stored availability for team fetch: ${savedAvailability}`);
-          
-          // Update the UI state to match stored value - only if different to avoid re-renders
-          if (isAvailable !== savedAvailability) {
-            setIsAvailable(savedAvailability);
-          }
-        } else {
-          // Try general availability as fallback
-          const generalAvailability = await AsyncStorage.getItem('availability');
-          if (generalAvailability !== null) {
-            savedAvailability = JSON.parse(generalAvailability);
-            console.log(`Using general availability for team fetch: ${savedAvailability}`);
+      // First try to load from persistent storage
+      const persistentTeamsData = await AsyncStorage.getItem(`persistent_all_teams_${email}`);
+      if (persistentTeamsData) {
+        const parsedTeams = JSON.parse(persistentTeamsData);
+        console.log(`Loaded ${parsedTeams.length} teams from persistent storage`);
+        setAllTeams(parsedTeams);
+        
+        // Restore to regular storage
+        await AsyncStorage.setItem(`all_teams_${email}`, persistentTeamsData);
+        
+        // If we have teams, load the first one as current team
+        if (parsedTeams.length > 0) {
+          const firstTeam = parsedTeams[0];
+          const teamData = await AsyncStorage.getItem(`persistent_team_${email}_${firstTeam.email}`);
+          if (teamData) {
+            const parsedTeam = JSON.parse(teamData);
+            console.log('Loaded current team from persistent storage');
+            setTeam(parsedTeam);
             
-            // Update the UI state to match stored value - only if different
-            if (isAvailable !== savedAvailability) {
-              setIsAvailable(savedAvailability);
-            }
+            // Restore to regular storage
+            await AsyncStorage.setItem(`current_team_${email}`, teamData);
+            await AsyncStorage.setItem(`team_${email}_${firstTeam.email}`, teamData);
           }
         }
-      } catch (e) {
-        console.warn('Error reading stored availability:', e);
-      }
-
-      // First check if we have team data in local storage
-      let localTeamData = null;
-      let localAllTeams = null;
-      
-      try {
-        // First check if we have backup from recent availability change
-        const storedBackupTeam = await AsyncStorage.getItem(`team_${userEmail}_backup`);
-        const storedBackupAllTeams = await AsyncStorage.getItem(`all_teams_${userEmail}_backup`);
-        
-        // Normal team storage
-        const storedTeam = await AsyncStorage.getItem(`team_${userEmail}`);
-        const storedAllTeams = await AsyncStorage.getItem(`all_teams_${userEmail}`);
-        
-        // Prefer backups if they exist (they're from recent availability changes)
-        if (storedBackupTeam) {
-          localTeamData = JSON.parse(storedBackupTeam);
-          console.log('Found backup team data from availability change:', localTeamData);
-          
-          // Update team member availability to match current availability
-          if (localTeamData.teamMembers) {
-            localTeamData.teamMembers = localTeamData.teamMembers.map(member => {
-              if (member.email === userEmail) {
-                return { ...member, isAvailable: savedAvailability };
-              }
-              return member;
-            });
-          }
-          
-          // Clean up backup after using it
-          await AsyncStorage.removeItem(`team_${userEmail}_backup`);
-        } else if (storedTeam) {
-          localTeamData = JSON.parse(storedTeam);
-          console.log('Found stored team data:', localTeamData);
-        }
-        
-        if (storedBackupAllTeams) {
-          localAllTeams = JSON.parse(storedBackupAllTeams);
-          console.log('Found backup all teams data from availability change:', localAllTeams);
-          
-          // Clean up backup after using it
-          await AsyncStorage.removeItem(`all_teams_${userEmail}_backup`);
-        } else if (storedAllTeams) {
-          localAllTeams = JSON.parse(storedAllTeams);
-          console.log('Found stored all teams data:', localAllTeams);
-        }
-      } catch (e) {
-        console.warn('Error reading team data from storage:', e);
+        return;
       }
       
-      // Set local data first for immediate UI response - only if different from current state
-      if (localTeamData && JSON.stringify(team) !== JSON.stringify(localTeamData)) {
-        setTeam(localTeamData);
-      }
-      
-      if (localAllTeams && JSON.stringify(allTeams) !== JSON.stringify(localAllTeams)) {
-        setAllTeams(localAllTeams);
-      }
-      
-      // CRITICAL: Special handling for ABC's team - always check this first
-      try {
-        const abcEmail = "abc@example.com"; // ABC's email
-        console.log(`Trying direct lookup for ABC's team...`);
+      // If no persistent data, try regular storage
+      const teamsData = await AsyncStorage.getItem(`all_teams_${email}`);
+      if (teamsData) {
+        const parsedTeams = JSON.parse(teamsData);
+        console.log(`Loaded ${parsedTeams.length} teams from regular storage`);
+        setAllTeams(parsedTeams);
         
-        const abcTeamResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(abcEmail)}/team?timestamp=${Date.now()}`);
-        if (abcTeamResponse.ok) {
-          const abcTeamData = await abcTeamResponse.json();
-          
-          // Check if this support user is in ABC's team
-          if (abcTeamData.teamMembers && abcTeamData.teamMembers.some(member => member.email === userEmail)) {
-            console.log(`Found this support user in ABC's team`);
-            
-            // Create a team entry for ABC - but don't set as the only team
-            const abcTeam = [{
-              firstName: "ABC",
-              surname: "",
-              email: abcEmail,
-              teamSize: abcTeamData.teamMembers.length
-            }];
-            
-            // Add epilepsy user info to the team data
-            abcTeamData.epilepsyUser = {
-              firstName: "ABC",
-              surname: "",
-              email: abcEmail
-            };
-            
-            // Store team data but don't overwrite all teams yet
-            // Wait to collect other teams before setting allTeams
-            const existingTeams = [...(allTeams || [])];
-            if (!existingTeams.some(t => t.email === abcEmail)) {
-              existingTeams.push(abcTeam[0]);
-            }
-            
-            // Set ABC as the initial team if we don't have one yet
-            if (!team) {
-              setTeam(abcTeamData);
-              await AsyncStorage.setItem(`team_${userEmail}`, JSON.stringify(abcTeamData));
-            }
-            
-            // Just store ABC's team data without overwriting allTeams yet
-            await AsyncStorage.setItem(`team_${userEmail}_${abcEmail}`, JSON.stringify(abcTeamData));
-            
-            console.log('Found ABC team data, continuing to check for other teams');
+        // If we have teams, load the first one as current team
+        if (parsedTeams.length > 0) {
+          const firstTeam = parsedTeams[0];
+          const teamData = await AsyncStorage.getItem(`team_${email}_${firstTeam.email}`);
+          if (teamData) {
+            const parsedTeam = JSON.parse(teamData);
+            console.log('Loaded current team from regular storage');
+            setTeam(parsedTeam);
           }
         }
-      } catch (e) {
-        console.warn('Error checking ABC team:', e);
+        return;
       }
       
-      // Now try to get fresh data from API
-      try {
-        console.log('Querying API for support user teams...');
+      // If no teams found in storage, check for individual team data
+      const keys = await AsyncStorage.getAllKeys();
+      const teamKeys = keys.filter(key => 
+        key.startsWith(`persistent_team_${email}_`) || 
+        key.startsWith(`team_${email}_`)
+      );
+      
+      if (teamKeys.length > 0) {
+        console.log(`Found ${teamKeys.length} individual team data entries`);
+        const teams = [];
         
-        // Use the dedicated endpoint for support teams with proper URL encoding
-        const encodedEmail = encodeURIComponent(userEmail);
-        const supportTeamsUrl = `${BASE_URL}/api/user/${encodedEmail}/support-teams?timestamp=${Date.now()}`;
-        console.log('Fetching from URL:', supportTeamsUrl);
-        
-        const supportTeamsResponse = await fetch(supportTeamsUrl);
-        const supportTeamsText = await supportTeamsResponse.text();
-        console.log('Support teams API response:', supportTeamsText);
-        
-        let supportTeamsData;
-        try {
-          supportTeamsData = JSON.parse(supportTeamsText);
-        } catch (e) {
-          console.error('Error parsing support teams response:', e);
-          supportTeamsData = null;
-        }
-        
-        if (Array.isArray(supportTeamsData) && supportTeamsData.length > 0) {
-          console.log(`Found ${supportTeamsData.length} teams for support user:`, supportTeamsData);
-          
-          // Collect all teams, including any we found from ABC
-          const allFoundTeams = [...(allTeams || [])];
-          
-          // Add new teams from the API
-          supportTeamsData.forEach(newTeam => {
-            // Check if this team already exists
-            const existingTeamIndex = allFoundTeams.findIndex(t => t.email === newTeam.email);
-            if (existingTeamIndex >= 0) {
-              // Update existing team data
-              allFoundTeams[existingTeamIndex] = newTeam;
-            } else {
-              // Add new team
-              allFoundTeams.push(newTeam);
-            }
-          });
-          
-          // Store and set all teams
-          console.log(`Setting all teams with ${allFoundTeams.length} entries`);
-          setAllTeams(allFoundTeams);
-          await AsyncStorage.setItem(`all_teams_${userEmail}`, JSON.stringify(allFoundTeams));
-          
-          // Get details for the first team (we'll show this by default if no team is set)
-          if (!team && supportTeamsData.length > 0) {
-            const firstTeam = supportTeamsData[0];
-            const epilepsyUserEmail = firstTeam.email;
-            
-            console.log(`Getting detailed team info for first epilepsy user: ${epilepsyUserEmail}`);
-            
-            // Get detailed team info for this epilepsy user
-            const teamResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(epilepsyUserEmail)}/team?timestamp=${Date.now()}`);
-            if (teamResponse.ok) {
-              const teamData = await teamResponse.json();
-              
-              // Add epilepsy user info to the team data
-              teamData.epilepsyUser = {
-                firstName: firstTeam.firstName,
-                surname: firstTeam.surname,
-                email: firstTeam.email
-              };
-              
-              // Try to get alert status for this epilepsy user
-              try {
-                const alertsResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(epilepsyUserEmail)}/alerts?timestamp=${Date.now()}`);
-                if (alertsResponse.ok) {
-                  const alertsData = await alertsResponse.json();
-                  console.log(`Alert status for ${epilepsyUserEmail}:`, alertsData);
-                  
-                  // Add alert status to epilepsy user info
-                  teamData.epilepsyUser.alertsEnabled = alertsData.alertsEnabled === true;
-                }
-              } catch (e) {
-                console.warn(`Error fetching alert status for ${epilepsyUserEmail}:`, e);
-                // Default to true if we can't get the status
-                teamData.epilepsyUser.alertsEnabled = true;
-              }
-              
-              console.log('Detailed team data for first team:', teamData);
-              
-              // Update the team data with current availability
-              if (teamData.teamMembers) {
-                const updatedMembers = teamData.teamMembers.map(member => {
-                  if (member.email === userEmail) {
-                    // Don't override the availability that came from the API
-                    // Only use local state if the API didn't provide availability
-                    if (member.isAvailable === undefined) {
-                      return { ...member, isAvailable };
-                    }
-                  }
-                  return member;
+        // Load each team's data
+        for (const key of teamKeys) {
+          try {
+            const teamData = await AsyncStorage.getItem(key);
+            if (teamData) {
+              const parsedTeam = JSON.parse(teamData);
+              if (parsedTeam.epilepsyUser) {
+                teams.push({
+                  firstName: parsedTeam.epilepsyUser.firstName,
+                  surname: parsedTeam.epilepsyUser.surname,
+                  email: parsedTeam.epilepsyUser.email,
+                  teamSize: parsedTeam.teamMembers?.length || 0
                 });
-                teamData.teamMembers = updatedMembers;
               }
-              
-              // Store and set the team data
-              await AsyncStorage.setItem(`team_${userEmail}`, JSON.stringify(teamData));
-              setTeam(teamData);
-            }
-          }
-          
-          // For every team in the list, fetch detailed data and store it
-          for (const teamInfo of allFoundTeams) {
-            try {
-              // Skip if we already have details for this team
-              if (team && team.epilepsyUser && team.epilepsyUser.email === teamInfo.email) {
-                console.log(`Already have detailed data for ${teamInfo.email}, skipping`);
-                continue;
-              }
-              
-              console.log(`Getting detailed data for team: ${teamInfo.email}`);
-              const detailResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(teamInfo.email)}/team?timestamp=${Date.now()}`);
-              if (detailResponse.ok) {
-                const detailData = await detailResponse.json();
-                
-                // Add epilepsy user info
-                detailData.epilepsyUser = {
-                  firstName: teamInfo.firstName,
-                  surname: teamInfo.surname,
-                  email: teamInfo.email
-                };
-                
-                // Try to get alert status for this epilepsy user
-                try {
-                  const alertsResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(teamInfo.email)}/alerts?timestamp=${Date.now()}`);
-                  if (alertsResponse.ok) {
-                    const alertsData = await alertsResponse.json();
-                    console.log(`Alert status for ${teamInfo.email}:`, alertsData);
-                    
-                    // Add alert status to epilepsy user info
-                    detailData.epilepsyUser.alertsEnabled = alertsData.alertsEnabled === true;
                   }
                 } catch (e) {
-                  console.warn(`Error fetching alert status for ${teamInfo.email}:`, e);
-                  // Default to true if we can't get the status
-                  detailData.epilepsyUser.alertsEnabled = true;
-                }
-                
-                // Store team details for later use
-                await AsyncStorage.setItem(`team_${userEmail}_${teamInfo.email}`, JSON.stringify(detailData));
-                console.log(`Stored detailed data for ${teamInfo.email}`);
-              }
-            } catch (e) {
-              console.warn(`Error fetching details for ${teamInfo.email}:`, e);
-            }
+            console.warn(`Error loading team data from ${key}:`, e);
           }
         }
-      } catch (err) {
-        console.warn('Error fetching teams from API:', err);
-      }
-      
-      // If we still don't have team data, try the general fallback approach
-      if ((!team || !allTeams || allTeams.length === 0) && !localTeamData && !localAllTeams) {
-        try {
-          console.log('No teams found from previous methods, trying fallback approach');
-          const epilepsyUsersResponse = await fetch(`${BASE_URL}/api/epilepsy-users?timestamp=${Date.now()}`);
-          if (epilepsyUsersResponse.ok) {
-            const epilepsyUsers = await epilepsyUsersResponse.json();
-            console.log('Found epilepsy users:', epilepsyUsers);
-            
-            const teamsFound = [];
-            
-            // Check each epilepsy user's team
-            for (const epilepsyUser of epilepsyUsers) {
-              try {
-                const teamResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(epilepsyUser.email)}/team?timestamp=${Date.now()}`);
-                if (teamResponse.ok) {
-                  const teamData = await teamResponse.json();
-                  
-                  // Check if this support user is in the team
-                  if (teamData.teamMembers && teamData.teamMembers.some(member => member.email === userEmail)) {
-                    console.log(`Found team for epilepsy user ${epilepsyUser.email} that includes this support user`);
-                    
-                    // Add this epilepsy user to the teams list
-                    teamsFound.push({
-                      firstName: epilepsyUser.firstName,
-                      surname: epilepsyUser.surname,
-                      email: epilepsyUser.email,
-                      teamSize: teamData.teamMembers.length
-                    });
-                    
-                    // If this is the first team found, set it as the current team
-                    if (teamsFound.length === 1) {
-                      // Add epilepsy user info to the team data
-                      teamData.epilepsyUser = {
-                        firstName: epilepsyUser.firstName,
-                        surname: epilepsyUser.surname,
-                        email: epilepsyUser.email
-                      };
-                      
-                      // Store and set the team data
-                      await AsyncStorage.setItem(`team_${userEmail}`, JSON.stringify(teamData));
-                      setTeam(teamData);
-                    }
-                  }
-                }
-              } catch (e) {
-                console.warn(`Error checking team for epilepsy user ${epilepsyUser.email}:`, e);
-              }
-            }
-            
-            if (teamsFound.length > 0) {
-              console.log(`Found ${teamsFound.length} teams for this support user through fallback method`);
-              setAllTeams(teamsFound);
-              await AsyncStorage.setItem(`all_teams_${userEmail}`, JSON.stringify(teamsFound));
-            }
-          }
-        } catch (e) {
-          console.warn('Error in fallback approach:', e);
-        }
-      }
-      
-      // Final attempt - try to get team data from user-specific team relation API
-      if ((!team || !allTeams || allTeams.length === 0) && !localTeamData && !localAllTeams) {
-        try {
-          console.log('Trying direct team relation lookup...');
-          const teamRelationUrl = `${BASE_URL}/api/user-teams/${encodeURIComponent(userEmail)}?timestamp=${Date.now()}`;
-          const teamRelationResponse = await fetch(teamRelationUrl);
+        
+        if (teams.length > 0) {
+          console.log(`Reconstructed ${teams.length} teams from individual data`);
+          setAllTeams(teams);
           
-          if (teamRelationResponse.ok) {
-            const teamRelationData = await teamRelationResponse.json();
-            if (Array.isArray(teamRelationData) && teamRelationData.length > 0) {
-              console.log(`Found ${teamRelationData.length} team relations for this support user`);
-              
-              const teamsFound = [];
-              
-              // Process each team relation
-              for (const relation of teamRelationData) {
-                if (relation.epilepsyUser) {
-                  teamsFound.push({
-                    firstName: relation.epilepsyUser.firstName || 'Unknown',
-                    surname: relation.epilepsyUser.surname || '',
-                    email: relation.epilepsyUser.email,
-                    teamSize: relation.teamSize || 1
-                  });
-                  
-                  // If this is the first team found, set it as the current team
-                  if (teamsFound.length === 1 && relation.teamData) {
-                    const teamData = relation.teamData;
-                    teamData.epilepsyUser = {
-                      firstName: relation.epilepsyUser.firstName || 'Unknown',
-                      surname: relation.epilepsyUser.surname || '',
-                      email: relation.epilepsyUser.email
-                    };
-                    
-                    // Store and set the team data
-                    await AsyncStorage.setItem(`team_${userEmail}`, JSON.stringify(teamData));
-                    setTeam(teamData);
-                  }
-                }
-              }
-              
-              if (teamsFound.length > 0) {
-                setAllTeams(teamsFound);
-                await AsyncStorage.setItem(`all_teams_${userEmail}`, JSON.stringify(teamsFound));
-              }
-            }
+          // Save to both regular and persistent storage
+          await AsyncStorage.setItem(`all_teams_${email}`, JSON.stringify(teams));
+          await AsyncStorage.setItem(`persistent_all_teams_${email}`, JSON.stringify(teams));
+          
+          // Load the first team as current team
+          const firstTeam = teams[0];
+          const teamData = await AsyncStorage.getItem(`team_${email}_${firstTeam.email}`);
+          if (teamData) {
+            const parsedTeam = JSON.parse(teamData);
+            setTeam(parsedTeam);
+            await AsyncStorage.setItem(`current_team_${email}`, teamData);
+            await AsyncStorage.setItem(`persistent_current_team_${email}`, teamData);
           }
-        } catch (e) {
-          console.warn('Error in team relation lookup:', e);
         }
-      }
-      
-      // Hardcoded fallback for ABC's team as absolute last resort
-      if ((!team || !allTeams || allTeams.length === 0) && !localTeamData && !localAllTeams) {
-        console.log('No teams found through any method, using hardcoded fallback for ABC');
-        
-        // First check if we have a saved availability status
-        let savedAvailability = isAvailable;
-        try {
-          const storedAvailability = await AsyncStorage.getItem(`availability_${userEmail}`);
-          if (storedAvailability !== null) {
-            savedAvailability = JSON.parse(storedAvailability);
-            console.log(`Using stored availability for hardcoded team: ${savedAvailability}`);
-          }
-        } catch (e) {
-          console.warn('Error reading stored availability:', e);
-        }
-        
-        // Get the user's actual first and last name
-        let firstName = await AsyncStorage.getItem('userFirstName');
-        let surname = await AsyncStorage.getItem('userSurname');
-        
-        // If we can't find the name in AsyncStorage, extract it from the email
-        if (!firstName) {
-          firstName = userEmail.split('@')[0];
-          if (firstName) {
-            // Capitalize first letter
-            firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
           } else {
-            firstName = 'Support';
-          }
-        }
-        
-        if (!surname) {
-          surname = '';
-        }
-        
-        console.log(`Using names for hardcoded team: ${firstName} ${surname}`);
-        
-        // Create a minimal team entry for ABC
-        const abcTeam = [{
-          firstName: "ABC",
-          surname: "",
-          email: "abc@example.com",
-          teamSize: 1
-        }];
-        
-        // Create minimal team data
-        const abcTeamData = {
-          epilepsyUser: {
-            firstName: "ABC",
-            surname: "",
-            email: "abc@example.com"
-          },
-          teamMembers: [{
-            email: userEmail,
-            firstName: firstName,
-            surname: surname,
-            role: 'support',
-            isAvailable: savedAvailability // Use saved availability instead of current state
-          }]
-        };
-        
-        // Set and store the data
-        setAllTeams(abcTeam);
-        setTeam(abcTeamData);
-        await AsyncStorage.setItem(`all_teams_${userEmail}`, JSON.stringify(abcTeam));
-        await AsyncStorage.setItem(`team_${userEmail}`, JSON.stringify(abcTeamData));
-        
-        console.log('Set hardcoded fallback for ABC team');
+        console.log('No team data found anywhere');
+        setAllTeams([]);
+        setTeam(null);
       }
-      
     } catch (err) {
       console.error('Error in fetchTeam:', err.message);
+      setAllTeams([]);
+      setTeam(null);
     } finally {
       setIsLoading(false);
-      setInitialLoadComplete(true);
-      isFetchingRef.current = false;
     }
-  }, [userEmail, isAvailable, refreshing, team, allTeams]);
+  }, []);
 
   // Then define debouncedFetchTeam with fetchTeam as a dependency
   const debouncedFetchTeam = React.useMemo(

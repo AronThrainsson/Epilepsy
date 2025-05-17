@@ -33,12 +33,37 @@ export default function SupportScreen() {
 
           // Try loading previously selected mates from storage
           try {
-            const teamData = await AsyncStorage.getItem(`team_${storedEmail}`);
-            if (teamData) {
-              const parsedTeam = JSON.parse(teamData);
-              if (Array.isArray(parsedTeam)) {
-                setSelected(parsedTeam);
-                console.log('Loaded selected emails:', parsedTeam);
+            // First try loading from persistent storage
+            const persistentSelectedMates = await AsyncStorage.getItem(`persistent_selected_mates_${storedEmail}`);
+            if (persistentSelectedMates) {
+              const selectedEmails = JSON.parse(persistentSelectedMates);
+              console.log('Loaded selected emails from persistent storage:', selectedEmails);
+              setSelected(selectedEmails);
+              
+              // Restore team data from persistent storage if needed
+              const persistentTeamData = await AsyncStorage.getItem(`persistent_team_${storedEmail}`);
+              if (persistentTeamData) {
+                await AsyncStorage.setItem(`team_${storedEmail}`, persistentTeamData);
+                console.log('Restored team data from persistent storage');
+              }
+            } else {
+              // If no persistent data, try regular storage
+              const selectedMates = await AsyncStorage.getItem(`selected_mates_${storedEmail}`);
+              if (selectedMates) {
+                const selectedEmails = JSON.parse(selectedMates);
+                console.log('Loaded selected emails from selected_mates:', selectedEmails);
+                setSelected(selectedEmails);
+              } else {
+                // If no selected_mates found, try loading from team data
+                const teamData = await AsyncStorage.getItem(`team_${storedEmail}`);
+                if (teamData) {
+                  const parsedTeam = JSON.parse(teamData);
+                  if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
+                    const selectedEmails = parsedTeam.teamMembers.map(member => member.email);
+                    console.log('Loaded selected emails from team data:', selectedEmails);
+                    setSelected(selectedEmails);
+                  }
+                }
               }
             }
           } catch (e) {
@@ -79,32 +104,111 @@ export default function SupportScreen() {
     try {
       if (!epilepsyEmail) return false;
       
-      // Save the raw selection
-      await AsyncStorage.setItem(`team_${epilepsyEmail}`, JSON.stringify(selectedEmails));
+      console.log('Saving team data for:', epilepsyEmail);
+      console.log('Selected emails:', selectedEmails);
       
-      // Create full mate objects with availability
+      // Save the raw selection first
+      await AsyncStorage.setItem(`selected_mates_${epilepsyEmail}`, JSON.stringify(selectedEmails));
+      await AsyncStorage.setItem(`persistent_selected_mates_${epilepsyEmail}`, JSON.stringify(selectedEmails));
+      console.log('Saved selected mates to storage');
+      
+      // Create full mate objects with availability and epilepsy user info
       const fullMates = selectedEmails.map(email => {
         const mate = supportUsers.find(user => user.email === email);
         return {
           email: email,
-          name: mate ? `${mate.firstName} ${mate.surname}` : email.split('@')[0],
-          isAvailable: mate ? mate.isAvailable : true
+          firstName: mate ? mate.firstName : email.split('@')[0],
+          surname: mate ? mate.surname : '',
+          isAvailable: mate ? mate.isAvailable : true,
+          role: 'support'
         };
       });
+
+      // Create the complete team data structure
+      const teamData = {
+        epilepsyUser: {
+          email: epilepsyEmail,
+          firstName: await AsyncStorage.getItem('userFirstName') || epilepsyEmail.split('@')[0],
+          surname: await AsyncStorage.getItem('userSurname') || ''
+        },
+        teamMembers: fullMates
+      };
       
-      // Save formatted mates for home page
-      const matesJson = JSON.stringify(fullMates);
-      await AsyncStorage.setItem(`formatted_mates_${epilepsyEmail}`, matesJson);
-      await AsyncStorage.setItem(`activatedMates_${epilepsyEmail}`, matesJson);
+      // Save the complete team data for the epilepsy user in both regular and persistent storage
+      await AsyncStorage.setItem(`team_${epilepsyEmail}`, JSON.stringify(teamData));
+      await AsyncStorage.setItem(`persistent_team_${epilepsyEmail}`, JSON.stringify(teamData));
+      console.log('Saved team data to storage');
+      
+      // Also save the team members list separately for easier access
+      await AsyncStorage.setItem(`team_members_${epilepsyEmail}`, JSON.stringify(fullMates));
+      await AsyncStorage.setItem(`persistent_team_members_${epilepsyEmail}`, JSON.stringify(fullMates));
+      console.log('Saved team members list separately');
+      
+      // For each support user, save their view of the team
+      for (const mate of fullMates) {
+        try {
+          // Get existing teams for this support user
+          let supportUserTeams = [];
+          
+          // Try loading from persistent storage first
+          const persistentTeams = await AsyncStorage.getItem(`persistent_all_teams_${mate.email}`);
+          if (persistentTeams) {
+            supportUserTeams = JSON.parse(persistentTeams);
+          } else {
+            // Fall back to regular storage
+            const existingTeams = await AsyncStorage.getItem(`all_teams_${mate.email}`);
+            if (existingTeams) {
+              supportUserTeams = JSON.parse(existingTeams);
+            }
+          }
+
+          // Add or update this team in their list
+          const teamInfo = {
+            firstName: teamData.epilepsyUser.firstName,
+            surname: teamData.epilepsyUser.surname,
+            email: epilepsyEmail,
+            teamSize: fullMates.length
+          };
+
+          const existingIndex = supportUserTeams.findIndex(t => t.email === epilepsyEmail);
+          if (existingIndex >= 0) {
+            supportUserTeams[existingIndex] = teamInfo;
+          } else {
+            supportUserTeams.push(teamInfo);
+          }
+
+          // Save updated teams list for this support user in both regular and persistent storage
+          await AsyncStorage.setItem(`all_teams_${mate.email}`, JSON.stringify(supportUserTeams));
+          await AsyncStorage.setItem(`persistent_all_teams_${mate.email}`, JSON.stringify(supportUserTeams));
+          console.log(`Updated teams list for support user ${mate.email}`);
+          
+          // Also save the detailed team data for this support user
+          await AsyncStorage.setItem(`team_${mate.email}_${epilepsyEmail}`, JSON.stringify(teamData));
+          await AsyncStorage.setItem(`persistent_team_${mate.email}_${epilepsyEmail}`, JSON.stringify(teamData));
+          console.log(`Saved detailed team data for support user ${mate.email}`);
+          
+          // Save a direct reference to this team in the support user's storage
+          await AsyncStorage.setItem(`current_team_${mate.email}`, JSON.stringify(teamData));
+          await AsyncStorage.setItem(`persistent_current_team_${mate.email}`, JSON.stringify(teamData));
+          console.log(`Saved current team reference for support user ${mate.email}`);
+          
+          // Force a flush to ensure data is written
+          await AsyncStorage.flushGetRequests();
+          
+          // Add a small delay between support users to avoid storage conflicts
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (e) {
+          console.warn(`Error saving team data for support user ${mate.email}:`, e);
+        }
+      }
       
       // Sync with server with concurrency handling
-      // First get current team members from server to avoid conflicts
       let currentTeamMembers = [];
       try {
         const response = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(epilepsyEmail)}/team`);
         if (response.ok) {
-          const teamData = await response.json();
-          currentTeamMembers = teamData.teamMembers?.map(member => member.email) || [];
+          const serverTeamData = await response.json();
+          currentTeamMembers = serverTeamData.teamMembers?.map(member => member.email) || [];
         }
       } catch (error) {
         console.warn('Error getting current team members:', error);
@@ -160,20 +264,18 @@ export default function SupportScreen() {
             if (!response.ok) {
               const errorText = await response.text();
               console.warn(`Error removing ${email} from team: ${errorText}`);
+            } else {
+              console.log(`Successfully removed ${email} from team`);
             }
-            
-            // Add a small delay between requests
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
           } catch (error) {
-            console.warn(`Error removing ${email} from team:`, error);
+            console.warn(`Error syncing ${email} with server:`, error);
           }
         }
       }
       
       return true;
-    } catch (e) {
-      console.error('Error saving team data:', e);
+    } catch (error) {
+      console.error('Error saving team data:', error);
       return false;
     }
   };

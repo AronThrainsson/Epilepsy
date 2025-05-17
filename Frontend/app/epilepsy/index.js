@@ -157,187 +157,66 @@ export default function Home() {
         return;
       }
       
-      console.log(`Loading mates for ${email}`);
+      console.log('Loading mates for:', email);
       setIsLoading(true);
       
-      // Try multiple storage locations to ensure we get the data
-      let matesData = null;
-      let loadedFrom = '';
-      
-      // First try to load from persistent team data (most reliable source)
-      try {
-        const persistentTeam = await AsyncStorage.getItem(`persistentTeam_${email}`);
-        if (persistentTeam) {
-          const teamData = JSON.parse(persistentTeam);
-          if (teamData.fullMates && Array.isArray(teamData.fullMates) && teamData.fullMates.length > 0) {
-            console.log(`Found ${teamData.fullMates.length} mates in persistentTeam storage`);
-            matesData = teamData.fullMates;
-            loadedFrom = 'persistentTeam';
-          } else if (teamData.selected && Array.isArray(teamData.selected) && teamData.selected.length > 0) {
-            // We have emails but not full objects, need to reconstruct
-            console.log(`Found ${teamData.selected.length} mate emails in persistentTeam, reconstructing`);
-            
-            // Reconstruct mate objects from emails
-            const reconstructedMates = await Promise.all(teamData.selected.map(async (email) => {
-              // Try to get stored user details
-              let firstName = '';
-              let surname = '';
-              let isAvailable = true;
-              
-              try {
-                const userDetails = await AsyncStorage.getItem(`supportUserDetails_${email}`);
-                if (userDetails) {
-                  const details = JSON.parse(userDetails);
-                  firstName = details.firstName || '';
-                  surname = details.surname || '';
-                }
-                
-                const availability = await AsyncStorage.getItem(`availability_${email}`);
-                if (availability !== null) {
-                  isAvailable = JSON.parse(availability);
-                }
-              } catch (e) {
-                console.warn(`Error getting details for ${email}:`, e);
-              }
-              
-              return {
-                email,
-                firstName,
-                surname,
-                name: firstName && surname ? `${firstName} ${surname}` : email.split('@')[0],
-                isAvailable
-              };
-            }));
-            
-            matesData = reconstructedMates;
-            loadedFrom = 'persistentTeam-reconstructed';
-          }
-        }
-      } catch (e) {
-        console.warn('Error loading from persistentTeam:', e);
+      // First try to load from persistent storage
+      const persistentTeamMembers = await AsyncStorage.getItem(`persistent_team_members_${email}`);
+      if (persistentTeamMembers) {
+        const parsedMembers = JSON.parse(persistentTeamMembers);
+        console.log(`Loaded ${parsedMembers.length} team members from persistent storage`);
+        setActivatedMates(parsedMembers);
+        
+        // Restore to regular storage
+        await AsyncStorage.setItem(`team_members_${email}`, persistentTeamMembers);
+        return;
       }
       
-      // If not found in persistent storage, try formatted_mates
-      if (!matesData) {
-        try {
-          const formattedMates = await AsyncStorage.getItem(`formatted_mates_${email}`);
-          if (formattedMates) {
-            const parsedMates = JSON.parse(formattedMates);
-            if (Array.isArray(parsedMates) && parsedMates.length > 0) {
-              console.log(`Found ${parsedMates.length} mates in formatted_mates storage`);
-              matesData = parsedMates;
-              loadedFrom = 'formatted_mates';
-            }
-          }
-        } catch (e) {
-          console.warn('Error loading from formatted_mates:', e);
-        }
+      // If no persistent data, try regular storage
+      const teamMembers = await AsyncStorage.getItem(`team_members_${email}`);
+      if (teamMembers) {
+        const parsedMembers = JSON.parse(teamMembers);
+        console.log(`Loaded ${parsedMembers.length} team members from regular storage`);
+        setActivatedMates(parsedMembers);
+        return;
       }
       
-      // If still not found, try activatedMates
-      if (!matesData) {
-        try {
-          const activatedMates = await AsyncStorage.getItem(`activatedMates_${email}`);
-          if (activatedMates) {
-            const parsedMates = JSON.parse(activatedMates);
-            if (Array.isArray(parsedMates) && parsedMates.length > 0) {
-              console.log(`Found ${parsedMates.length} mates in activatedMates storage`);
-              matesData = parsedMates;
-              loadedFrom = 'activatedMates';
-            }
-          }
-        } catch (e) {
-          console.warn('Error loading from activatedMates:', e);
-        }
-      }
-      
-      // If still not found, try team storage
-      if (!matesData) {
-        try {
+      // If no team members found, try loading from team data
           const teamData = await AsyncStorage.getItem(`team_${email}`);
           if (teamData) {
-            try {
               const parsedTeam = JSON.parse(teamData);
-              if (Array.isArray(parsedTeam) && parsedTeam.length > 0) {
-                // This is just an array of emails, need to reconstruct
-                console.log(`Found ${parsedTeam.length} mate emails in team storage, reconstructing`);
-                
-                // Reconstruct mate objects from emails (similar to above)
-                const reconstructedMates = await Promise.all(parsedTeam.map(async (email) => {
-                  // Try to get stored user details
-                  let firstName = '';
-                  let surname = '';
-                  let isAvailable = true;
-                  
-                  try {
-                    const userDetails = await AsyncStorage.getItem(`supportUserDetails_${email}`);
-                    if (userDetails) {
-                      const details = JSON.parse(userDetails);
-                      firstName = details.firstName || '';
-                      surname = details.surname || '';
-                    }
-                    
-                    const availability = await AsyncStorage.getItem(`availability_${email}`);
-                    if (availability !== null) {
-                      isAvailable = JSON.parse(availability);
-                    }
-                  } catch (e) {
-                    console.warn(`Error getting details for ${email}:`, e);
-                  }
-                  
-                  return {
-                    email,
-                    firstName,
-                    surname,
-                    name: firstName && surname ? `${firstName} ${surname}` : email.split('@')[0],
-                    isAvailable
-                  };
-                }));
-                
-                matesData = reconstructedMates;
-                loadedFrom = 'team-reconstructed';
-              }
-            } catch (e) {
-              console.warn('Error parsing team data:', e);
-            }
-          }
-        } catch (e) {
-          console.warn('Error loading from team storage:', e);
+        if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
+          console.log(`Loaded ${parsedTeam.teamMembers.length} team members from team data`);
+          setActivatedMates(parsedTeam.teamMembers);
+          
+          // Save to team members storage for future use
+          await AsyncStorage.setItem(`team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
+          await AsyncStorage.setItem(`persistent_team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
+          return;
         }
       }
       
-      // If we found mates data, set it
-      if (matesData && Array.isArray(matesData)) {
-        console.log(`Loaded ${matesData.length} mates from ${loadedFrom}`);
-        setActivatedMates(matesData);
-        
-        // Also save to all storage locations to ensure consistency
-        try {
-          const matesJson = JSON.stringify(matesData);
-          await AsyncStorage.setItem(`formatted_mates_${email}`, matesJson);
-          await AsyncStorage.setItem(`activatedMates_${email}`, matesJson);
+      // If still no data found, try persistent team data
+      const persistentTeamData = await AsyncStorage.getItem(`persistent_team_${email}`);
+      if (persistentTeamData) {
+        const parsedTeam = JSON.parse(persistentTeamData);
+        if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
+          console.log(`Loaded ${parsedTeam.teamMembers.length} team members from persistent team data`);
+          setActivatedMates(parsedTeam.teamMembers);
           
-          // Also save to persistentTeam if not already there
-          if (loadedFrom !== 'persistentTeam') {
-            const persistentData = {
-              email: email,
-              selected: matesData.map(mate => mate.email),
-              timestamp: Date.now(),
-              fullMates: matesData
-            };
-            await AsyncStorage.setItem(`persistentTeam_${email}`, JSON.stringify(persistentData));
-          }
-          
-          console.log('Saved mates data to all storage locations for consistency');
-        } catch (e) {
-          console.warn('Error saving mates data to storage:', e);
+          // Save to team members storage for future use
+          await AsyncStorage.setItem(`team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
+          await AsyncStorage.setItem(`persistent_team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
+          return;
         }
-      } else {
-        console.log('No mates data found in any storage location');
-        setActivatedMates([]);
       }
-    } catch (e) {
-      console.error('Error in loadMates:', e);
+      
+      // If no data found anywhere, set empty array
+      console.log('No team members found anywhere');
+      setActivatedMates([]);
+    } catch (err) {
+      console.error('Error loading mates:', err);
+      setActivatedMates([]);
     } finally {
       setIsLoading(false);
     }
@@ -733,7 +612,7 @@ export default function Home() {
                   styles.mateItem,
                   !item.isAvailable && styles.unavailableMate
                 ]}>
-                  <Text style={styles.mateText}>{item.name}</Text>
+                  <Text style={styles.mateText}>{item.firstName} {item.surname}</Text>
                   <Text style={[
                     styles.availabilityText,
                     item.isAvailable ? styles.availableText : styles.unavailableText
