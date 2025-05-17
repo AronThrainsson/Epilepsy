@@ -19,6 +19,7 @@ import { Calendar } from 'react-native-calendars';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from '../../config';
+import { triggerSeizureAlert } from '../services/notificationService';
 
 const LogScreen = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -28,7 +29,6 @@ const LogScreen = () => {
   const [selectedSeizure, setSelectedSeizure] = useState(null);
   const [note, setNote] = useState('');
 
-  // Platform-specific header height
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
@@ -100,6 +100,49 @@ const LogScreen = () => {
     }
   };
 
+  // 👇 Random critical seizure data generator
+  const generateCriticalSeizureData = () => {
+    const heartRate = Math.floor(Math.random() * 40) + 130; // 130–170
+    const spO2 = Math.floor(Math.random() * 5) + 84; // 84–88
+    const movement = Math.floor(Math.random() * 10) + 1; // 1–10
+    return { heartRate, spO2, movement };
+  };
+
+  const logSeizure = async () => {
+    try {
+      const email = await AsyncStorage.getItem('userEmail');
+      if (!email) return Alert.alert('Error', 'User not logged in.');
+
+      const { heartRate, spO2, movement } = generateCriticalSeizureData();
+
+      const payload = {
+        epilepsyUserEmail: email,
+        latitude: 55.4038,
+        longitude: 10.4024,
+        heartRate,
+        spO2,
+        movement
+      };
+
+      const response = await fetch(`${BASE_URL}/api/seizure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Failed to log seizure');
+
+      // Trigger notification after successful seizure logging
+      await triggerSeizureAlert(email);
+
+      Alert.alert('Success', 'Seizure logged successfully and mates notified.');
+      fetchSeizures();
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to log seizure.');
+    }
+  };
+
   const filteredSeizures = seizures.filter(s => s.date === selectedDate);
 
   const renderSeizureItem = ({ item }) => (
@@ -117,14 +160,12 @@ const LogScreen = () => {
         translucent={Platform.OS === 'android'}
       />
 
-      {/* Header */}
       <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Seizure Log</Text>
         </View>
       </View>
 
-      {/* Content with proper margin to avoid header overlap */}
       <ScrollView
         style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
         contentContainerStyle={styles.scrollContent}
@@ -154,6 +195,10 @@ const LogScreen = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.listContent}
         />
+
+        <TouchableOpacity style={styles.logButton} onPress={logSeizure}>
+          <Text style={styles.logButtonText}>+ Log Seizure</Text>
+        </TouchableOpacity>
 
         <Modal
           visible={modalVisible}
@@ -289,31 +334,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2E3A59',
   },
-  closeIcon: {
-    position: 'absolute',
-    top: 16,
-    right: 16
-  },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#CCC',
     borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    minHeight: 100,
-    textAlignVertical: 'top',
+    padding: 10,
+    marginTop: 12,
+    minHeight: 60,
+    textAlignVertical: 'top'
   },
   saveButton: {
-    backgroundColor: '#CB97F0',
-    padding: 12,
-    marginTop: 20,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 12,
     borderRadius: 8,
+    marginTop: 16,
+    alignItems: 'center'
   },
   saveButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: '600',
+    color: '#FFF',
+    fontWeight: 'bold'
   },
+  logButton: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+    marginHorizontal: 20
+  },
+  logButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+  closeIcon: {
+    alignSelf: 'flex-end'
+  }
 });
 
 export default LogScreen;
