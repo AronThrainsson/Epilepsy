@@ -362,7 +362,7 @@ export default function SupportScreen() {
                       styles.availabilityText,
                       item.isAvailable ? styles.availableText : styles.unavailableText
                     ]}>
-                      {item.isAvailable ? 'Available' : 'Currently Unavailable'}
+                      {item.isAvailable ? 'Available' : 'Unavailable'}
                     </Text>
                   </View>
                   {selected.includes(item.email) ? (

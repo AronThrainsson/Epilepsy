@@ -208,14 +208,51 @@ export default function Home() {
             const parsedTeam = JSON.parse(teamData);
             // Ensure we preserve team membership while updating availability
             if (parsedTeam.teamMembers) {
-              const updatedMembers = parsedTeam.teamMembers.map(member => ({
-                ...member,
-                // Only update availability for the current user
-                isAvailable: member.email === email ? isAvailable : member.isAvailable
-              }));
-              setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+              try {
+                // Get latest availability for all team members
+                const availabilityResponse = await fetch(`${BASE_URL}/api/support-users?timestamp=${Date.now()}`);
+                if (availabilityResponse.ok) {
+                  const supportUsersData = await availabilityResponse.json();
+                  const availabilityMap = new Map(
+                    supportUsersData.map(user => [user.email, user.isAvailable])
+                  );
+                  
+                  const updatedMembers = parsedTeam.teamMembers.map(member => {
+                    if (member.email === email) {
+                      // For current user, use the local state
+                      return { ...member, isAvailable };
+                    }
+                    // For other members, use server data
+                    return {
+                      ...member,
+                      isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
+                    };
+                  });
+                  
+                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+                } else {
+                  // If server fetch fails, at least update current user
+                  const updatedMembers = parsedTeam.teamMembers.map(member => {
+                    if (member.email === email) {
+                      return { ...member, isAvailable };
+                    }
+                    return member;
+                  });
+                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+                }
+              } catch (error) {
+                console.warn('Error fetching availability:', error);
+                // On error, still update current user
+                const updatedMembers = parsedTeam.teamMembers.map(member => {
+                  if (member.email === email) {
+                    return { ...member, isAvailable };
+                  }
+                  return member;
+                });
+                setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+              }
             } else {
-            setTeam(parsedTeam);
+              setTeam(parsedTeam);
             }
           }
         }
@@ -233,17 +270,53 @@ export default function Home() {
           const teamData = await AsyncStorage.getItem(`team_${email}_${firstTeam.email}`);
           if (teamData) {
             const parsedTeam = JSON.parse(teamData);
-            // Apply the same preservation logic here
             if (parsedTeam.teamMembers) {
-              const updatedMembers = parsedTeam.teamMembers.map(member => ({
-                ...member,
-                isAvailable: member.email === email ? isAvailable : member.isAvailable
-              }));
-              setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+              try {
+                const availabilityResponse = await fetch(`${BASE_URL}/api/support-users?timestamp=${Date.now()}`);
+                if (availabilityResponse.ok) {
+                  const supportUsersData = await availabilityResponse.json();
+                  const availabilityMap = new Map(
+                    supportUsersData.map(user => [user.email, user.isAvailable])
+                  );
+                  
+                  const updatedMembers = parsedTeam.teamMembers.map(member => {
+                    if (member.email === email) {
+                      // For current user, use the local state
+                      return { ...member, isAvailable };
+                    }
+                    // For other members, use server data
+                    return {
+                      ...member,
+                      isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
+                    };
+                  });
+                  
+                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+                } else {
+                  // If server fetch fails, at least update current user
+                  const updatedMembers = parsedTeam.teamMembers.map(member => {
+                    if (member.email === email) {
+                      return { ...member, isAvailable };
+              }
+              return member;
+            });
+                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+                }
+              } catch (error) {
+                console.warn('Error fetching availability:', error);
+                // On error, still update current user
+                const updatedMembers = parsedTeam.teamMembers.map(member => {
+                  if (member.email === email) {
+                    return { ...member, isAvailable };
+                    }
+                    return member;
+                  });
+                setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+              }
             } else {
-            setTeam(parsedTeam);
+              setTeam(parsedTeam);
+            }
           }
-        }
         }
       }
     } catch (err) {
@@ -406,14 +479,12 @@ export default function Home() {
           {member.firstName} {member.surname}
           {member.email === userEmail && ' (You)'}
         </Text>
-        {member.email === userEmail && (
-          <Text style={[
-            styles.availabilityStatus,
-            isAvailable ? styles.availableStatus : styles.unavailableStatus
-          ]}>
-            {isAvailable ? 'Available' : 'Unavailable'}
-          </Text>
-        )}
+        <Text style={[
+          styles.availabilityStatus,
+          member.isAvailable ? styles.availableStatus : styles.unavailableStatus
+        ]}>
+          {member.isAvailable ? 'Available' : 'Unavailable'}
+        </Text>
       </View>
     </View>
   ));
@@ -664,7 +735,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 110,
+    marginBottom: 70,
     paddingHorizontal: 70,
   },
   label: {
