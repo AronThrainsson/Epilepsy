@@ -521,7 +521,9 @@ export default function Home() {
   ), [StatusSection, BatterySection, AlertSection]);
 
   const ListEmptyComponent = useCallback(() => (
-    <Text style={styles.noMatesText}>No mates activated</Text>
+    <View style={styles.emptyContainer}>
+      <Text style={styles.noMatesText}>No mates activated</Text>
+    </View>
   ), []);
 
   return (
@@ -700,6 +702,10 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     marginTop: 10,
+    textAlign: 'center',
+    alignSelf: 'center',
+    flex: 1,
+    paddingTop: 20
   },
   loadingText: {
     fontSize: 14,
@@ -752,5 +758,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginHorizontal: 20,
     width: 'auto',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200
   },
 });
