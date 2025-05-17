@@ -1,4 +1,8 @@
+//react native import block, import of react and hooks (useState & useEffect)
+//useState = lets component store and update values (e.g. variables)
+//useEffect = runs code when component loads and when certain values change 
 import React, { useState, useEffect } from 'react';
+//imports UI components from react-native to build screens, layouts, input, modals, alert etc. 
 import {
   View,
   Text,
@@ -15,36 +19,46 @@ import {
   StatusBar,
   SafeAreaView
 } from 'react-native';
+//Import UI calendar component (to display and choose dates)
 import { Calendar } from 'react-native-calendars';
+//Import icons via Expo 
 import { Feather } from '@expo/vector-icons';
+//Async lets the app save data locally on the device (like a small-database for user settings or saved data)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//imports the base URL for backend API calls 
 import { BASE_URL } from '../../config';
 
+//Define of functional React component LogScreen, for displaying and managing seizure logs
 const LogScreen = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [seizures, setSeizures] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedSeizure, setSelectedSeizure] = useState(null);
-  const [note, setNote] = useState('');
+  //useState calls to store data and track UI behaviour / keep track of selected data (YYYY/MM/DD)
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [seizures, setSeizures] = useState([]); //array of seizure records fetched from backend
+  const [refreshing, setRefreshing] = useState(false); //pull-to-refresh functionality, state to indicate if list is refreshing
+  const [modalVisible, setModalVisible] = useState(false); //tracks if modal pop-up is open/visible or closed
+  const [selectedSeizure, setSelectedSeizure] = useState(null); //stores seizure currently selected for viewing/editing
+  const [note, setNote] = useState(''); //to store a note input from the user
 
-  // Platform-specific header height
+  // Adjust layout depending on whether it is running on iOs or Andriod / add extra spacing for content positioning
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
+  //useEffect runs once when the component mounts = component gets successfully inserted into the DOM, the component is 'mounted'
+  //load seizure data (fecthSeizure) from backend when component mounts 
   useEffect(() => {
     fetchSeizures();
   }, []);
 
+  //fetch to interact with backend API, async to get seizure data 
   const fetchSeizures = async () => {
     try {
-      const email = await AsyncStorage.getItem('userEmail');
+      const email = await AsyncStorage.getItem('userEmail'); //get user's email from local stoage; exit if not found
       if (!email) return;
 
-      const response = await fetch(`${BASE_URL}/api/seizures?epilepsyUserEmail=${email}`);
-      if (!response.ok) throw new Error('Failed to fetch seizures');
-      const data = await response.json();
+      const response = await fetch(`${BASE_URL}/api/seizures?epilepsyUserEmail=${email}`); //call backend API to fetch seizures for the user
+      if (!response.ok) throw new Error('Failed to fetch seizures'); //error handling, if server response isn't ok, send error
+      const data = await response.json(); //converts respons data into JSON format = text-based format to represent structured data JS syntax
 
+      //Format and clean up seizure data e.g. convert timestamp to readable, set default values is anything missing
       const parsed = data.map(seizure => {
         const timestamp = new Date(seizure.timestamp);
         return {
@@ -56,29 +70,36 @@ const LogScreen = () => {
         };
       });
 
+      //save the processed seizure list to state
       setSeizures(parsed);
     } catch (err) {
-      console.error('Error loading seizures:', err);
+      console.error('Error loading seizures:', err); //catch and log errors if fetch or parsing fails
     }
   };
 
+  //pull-to-refresh function / refresh seizure list when user pulls to refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchSeizures();
     setRefreshing(false);
   };
 
+  //called when user taps a date on the calendar
+  //updates selctedDate when tapped on the calendar
   const handleDayPress = (day) => setSelectedDate(day.dateString);
 
+  //open modal and load selected seizure details when tapped / when user taps a seizure entry
   const handleSeizurePress = (seizure) => {
     setSelectedSeizure(seizure);
-    setNote(seizure.note || '');
+    setNote(seizure.note || ''); //loads note into input
     setModalVisible(true);
   };
 
+  //ensures there is a selected seizure before saving note 
   const saveNote = async () => {
     if (!selectedSeizure) return;
 
+    //(backend API call) send PATCH request to backend to update the note for the seizure using the selected seizure's id
     try {
       const response = await fetch(`${BASE_URL}/api/seizures/${selectedSeizure.id}/note`, {
         method: 'PATCH',
@@ -86,22 +107,27 @@ const LogScreen = () => {
         body: JSON.stringify({ note }),
       });
 
+      //checks for errors
       if (!response.ok) throw new Error('Failed to update note');
 
+      //Updates seizure array locally with the new note 
       const updated = seizures.map(s =>
         s.id === selectedSeizure.id ? { ...s, note } : s
       );
-      setSeizures(updated);
+      setSeizures(updated); //updates state and closes modal 
       setSelectedSeizure({ ...selectedSeizure, note });
       setModalVisible(false);
-    } catch (err) {
+    } catch (err) { //error handling, alerts user and logs the error
       Alert.alert('Error', 'Could not save note.');
       console.error(err);
     }
   };
 
+  //filter seizures to only include those on the currently selected date
   const filteredSeizures = seizures.filter(s => s.date === selectedDate);
 
+  //render a seizure item with time and chevron icon (>) - opens modal on press
+  //render = converting code into viewable interactive web content
   const renderSeizureItem = ({ item }) => (
     <TouchableOpacity style={styles.seizureItem} onPress={() => handleSeizurePress(item)}>
       <Text style={styles.seizureTime}>Time: {item.time || 'Unknown time'}</Text>
@@ -109,15 +135,16 @@ const LogScreen = () => {
     </TouchableOpacity>
   );
 
+  //container that makes sure the content aviod screen notches or coners (especially on phones) safe screen aras
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar
+      <StatusBar //customise status bar appearance for iOS and Android
         backgroundColor="#FFFFFF"
         barStyle="dark-content"
         translucent={Platform.OS === 'android'}
       />
 
-      {/* Header */}
+      {/* App header with title and height adjusted (iOS/Android) */}
       <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Seizure Log</Text>
@@ -125,20 +152,21 @@ const LogScreen = () => {
       </View>
 
       {/* Content with proper margin to avoid header overlap */}
+      {/* scrollable area for calendar and seizure list */}
       <ScrollView
         style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
         contentContainerStyle={styles.scrollContent}
       >
-        <Calendar
+        <Calendar //calendar showing selected day and marking dates with seizures
           onDayPress={handleDayPress}
-          markedDates={{
+          markedDates={{ //highlights selected day and shows 'dot' for seizure days
             [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
-            ...seizures.reduce((acc, s) => {
+            ...seizures.reduce((acc, s) => { //reduce()=list of marked dates from seizures
               acc[s.date] = { marked: true, dotColor: '#4F46E5' };
               return acc;
             }, {})
           }}
-          theme={{
+          theme={{ //customises colours 
             selectedDayBackgroundColor: '#4F46E5',
             todayTextColor: '#4F46E5',
             arrowColor: '#4F46E5',
@@ -146,8 +174,9 @@ const LogScreen = () => {
           style={styles.calendar}
         />
 
+        {/* tite showing the data for the displayed seizures */}
         <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
-        <FlatList
+        <FlatList /*list of seizures for selected date with pull-to-refresh support */
           data={filteredSeizures}
           keyExtractor={(item, i) => `${item.timestamp}-${i}`}
           renderItem={renderSeizureItem}
@@ -155,22 +184,25 @@ const LogScreen = () => {
           contentContainerStyle={styles.listContent}
         />
 
+        {/*modal that slides up to show seizure details and note input */}
         <Modal
-          visible={modalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setModalVisible(false)}
+          visible={modalVisible} /*determines if open or hiddden*/
+          transparent /*dims the background */
+          animationType="slide" /*control how it appears --> slides */
+          onRequestClose={() => setModalVisible(false)} /*allows for button to clode it*/
         >
+          {/*avoid keyborad covering the input field*/}
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.modalContainer}
           >
+            {/*scrollable modal content to fit smaller screens */}
             <View style={styles.modalBackground}>
               <ScrollView contentContainerStyle={styles.modalContent}>
-                <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
+                <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}> {/*a button with 'X' icon to clode the modal */}
                   <Feather name="x" size={24} color="#4F46E5" />
                 </TouchableOpacity>
-                {selectedSeizure && (
+                {selectedSeizure && ( //only render if seizure is selected / display selected seizure's date, time and sensor details
                   <>
                     <Text style={styles.modalTitle}>Seizure Details</Text>
                     <Text>Date: {selectedSeizure.date}</Text>
@@ -179,14 +211,14 @@ const LogScreen = () => {
                     <Text>Heart Rate: {selectedSeizure.heartRate} bpm</Text>
                     <Text>SpO2: {selectedSeizure.spO2}%</Text>
                     <Text>Movement: {selectedSeizure.movement}</Text>
-                    <TextInput
+                    <TextInput //multiline input for user to add/edit seizure notes
                       style={styles.noteInput}
-                      value={note}
-                      onChangeText={setNote}
+                      value={note} //hook into state / hook = replacing or extending the default behavior with a custom behavior for specific events
+                      onChangeText={setNote} //hook into state
                       multiline
                       placeholder="Add your notes here..."
                     />
-                    <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
+                    <TouchableOpacity style={styles.saveButton} onPress={saveNote}> {/*button to save note to server*/}
                       <Text style={styles.saveButtonText}>Save Note</Text>
                     </TouchableOpacity>
                   </>

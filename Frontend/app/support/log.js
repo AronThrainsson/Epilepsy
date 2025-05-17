@@ -1,5 +1,8 @@
+//react native import block, import of react and hooks (useState & useEffect)
+//useState = lets component store and update values (e.g. variables)
+//useEffect = runs code when component loads and when certain values change 
 import React, { useState, useEffect } from 'react';
-import {
+import { //imports UI components from react-native to build screens, layouts, input, modals, alert etc.
   View,
   Text,
   StyleSheet,
@@ -15,35 +18,42 @@ import {
   SafeAreaView,
   StatusBar
 } from 'react-native';
+//Import UI calendar component (to display and choose dates)
 import { Calendar } from 'react-native-calendars';
+//Import icons via Expo
 import { useRouter } from 'expo-router';
+//Async lets the app save data locally on the device (like a small-database for user settings or saved data)
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//imports the base URL for backend API calls 
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 
-const LogScreen = () => {
+//Define of functional React component LogScreen, for displaying and managing seizure logs
+const LogScreen = () => { 
+  //useState calls to store data and track UI behaviour / keep track of selected data (YYYY/MM/DD)
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [seizures, setSeizures] = useState([]);
+  const [seizures, setSeizures] = useState([]); //array of seizure records fetched from backend
   const [selectedSeizure, setSelectedSeizure] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentNote, setCurrentNote] = useState('');
   const [isEditingNote, setIsEditingNote] = useState(false);
 
-  // Platform-specific header height
+  // Adjust layout depending on whether it is running on iOs or Andriod / add extra spacing for content positioning
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
+  //load seizure from local stoage (asyncStorage)
   const loadSeizures = async () => {
     try {
-      const storedSeizures = await AsyncStorage.getItem('seizures');
+      const storedSeizures = await AsyncStorage.getItem('seizures'); //AsyncStorage.getItem = loads previously saved data locally (not from server)
       if (storedSeizures) {
         let parsedSeizures = JSON.parse(storedSeizures);
         parsedSeizures = parsedSeizures.map(seizure => ({
           ...seizure,
-          id: seizure.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          id: seizure.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` //generate unique ID for seizures missing one
         }));
-        setSeizures(parsedSeizures);
+        setSeizures(parsedSeizures); //uodate state with the loaded seizure data
       } else {
         setSeizures([]);
       }
@@ -52,46 +62,56 @@ const LogScreen = () => {
     }
   };
 
+  //load seizures once when the component mounts, mounts = component gets successfully inserted into the DOM
   useEffect(() => {
     loadSeizures();
   }, []);
 
+  //pull-to-refresh function / refresh seizure list when user pulls to refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadSeizures();
     setRefreshing(false);
   };
 
+  //filter seizures to only show for the current selected date
   const filteredSeizures = seizures.filter(seizure => seizure.date === selectedDate);
 
+  //called when user taps a date on the calendar
+  //updates selctedDate when tapped on the calendar
   const handleDayPress = (day) => {
     setSelectedDate(day.dateString);
   };
 
+  //open modal and load selected seizure details when tapped / when user taps a seizure entry
   const handleSeizurePress = (seizure) => {
     setSelectedSeizure(seizure);
     setModalVisible(true);
   };
 
+  //prepare to edit the note for selected seizure
   const handleEditNote = () => {
     setCurrentNote(selectedSeizure?.note || '');
     setIsEditingNote(true);
   };
 
+  //save the updated note locally
   const saveNote = async () => {
     if (!selectedSeizure) return;
 
     try {
-      const updatedSeizures = seizures.map(seizure =>
+      const updatedSeizures = seizures.map(seizure => //loops throug hall seizures to find selected one by ID
+      // updates nate with new currentNote value
         seizure.id === selectedSeizure.id ? { ...seizure, note: currentNote } : seizure
       );
 
-      await AsyncStorage.setItem('seizures', JSON.stringify(updatedSeizures));
+      //update state and close edit mode
+      await AsyncStorage.setItem('seizures', JSON.stringify(updatedSeizures)); //saves the new seizure list to local storage
       setSeizures(updatedSeizures);
       setSelectedSeizure({...selectedSeizure, note: currentNote});
       setIsEditingNote(false);
     } catch (error) {
-      console.error('Error saving note:', error);
+      console.error('Error saving note:', error); //catch and log errors
     }
   };
 
