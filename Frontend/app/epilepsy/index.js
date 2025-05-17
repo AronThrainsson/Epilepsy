@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, Switch, FlatList, StyleSheet, ScrollView, Alert, RefreshControl } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,7 +7,7 @@ import { BASE_URL } from '../../config';
 
 export default function Home() {
   const [batteryLevel, setBatteryLevel] = useState(0);
-  const [alertOn, setAlertOn] = useState(true); // Default to true
+  const [alertOn, setAlertOn] = useState(true);
   const [activatedMates, setActivatedMates] = useState([]);
   const [watchStatus, setWatchStatus] = useState('ok');
   const [isLoading, setIsLoading] = useState(true);
@@ -15,6 +15,51 @@ export default function Home() {
   const [supportUsers, setSupportUsers] = useState([]);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Add refs for debouncing
+  const updateTimeoutRef = useRef(null);
+  const lastUpdateRef = useRef(Date.now());
+
+  // Memoize the processed mates list to prevent unnecessary re-renders
+  const processedMates = useMemo(() => {
+    return activatedMates.map(mate => ({
+      ...mate,
+      key: mate.email // Ensure stable keys for FlatList
+    }));
+  }, [activatedMates]);
+
+  // Debounced update function
+  const debouncedUpdateMates = useCallback((newMates) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateRef.current;
+
+    if (timeSinceLastUpdate < 2000) { // Minimum 2 seconds between updates
+      updateTimeoutRef.current = setTimeout(() => {
+        setActivatedMates(newMates);
+        lastUpdateRef.current = Date.now();
+      }, 2000 - timeSinceLastUpdate);
+    } else {
+      setActivatedMates(newMates);
+      lastUpdateRef.current = now;
+    }
+  }, []);
+
+  // Deep comparison function
+  const areMatesEqual = useCallback((mates1, mates2) => {
+    if (!mates1 || !mates2) return false;
+    if (mates1.length !== mates2.length) return false;
+    return mates1.every((mate1, index) => {
+      const mate2 = mates2[index];
+      return mate1.email === mate2.email && 
+             mate1.isAvailable === mate2.isAvailable &&
+             mate1.firstName === mate2.firstName &&
+             mate1.surname === mate2.surname;
+    });
+  }, []);
 
   // Debug function to check AsyncStorage contents
   const debugStorage = async () => {
@@ -83,10 +128,6 @@ export default function Home() {
   }, []);
 
   const loadSupportUsers = async () => {
-    try {
-      console.log('Loading support users with current availability status');
-      
-      // Try to get fresh data with a timestamp to prevent caching
       try {
         const response = await fetch(`${BASE_URL}/api/support-users?timestamp=${Date.now()}`, {
           headers: {
@@ -99,52 +140,31 @@ export default function Home() {
         if (response.ok) {
           const supportData = await response.json();
           if (Array.isArray(supportData)) {
-            console.log('Loaded support users from API with availability:', supportData);
-            
-            // Process each support user
-            const processedUsers = supportData.map(user => {
-              // Ensure isAvailable is a boolean
-              const isAvailable = user.isAvailable === true || user.isAvailable === 'true';
-              console.log(`Support user ${user.firstName}: API availability=${isAvailable}`);
-              
-              return {
+          const processedUsers = supportData.map(user => ({
                 ...user,
-                isAvailable: isAvailable
-              };
-            });
+            isAvailable: user.isAvailable === true || user.isAvailable === 'true'
+          }));
             
-            // Update state with processed users
             setSupportUsers(processedUsers);
-            
-            // Store for future use
             await AsyncStorage.setItem('supportUsers', JSON.stringify(processedUsers));
-            console.log('Updated support users with availability status');
             
-            // Update availability in storage for each user
             for (const user of processedUsers) {
               await AsyncStorage.setItem(`availability_${user.email}`, JSON.stringify(user.isAvailable));
-              console.log(`Stored availability for ${user.email}: ${user.isAvailable}`);
             }
             
             return processedUsers;
           }
-        }
-      } catch (err) {
-        console.warn('Error fetching fresh support users:', err);
       }
       
-      // If we couldn't get fresh data, try from storage
       const storedSupportUsers = await AsyncStorage.getItem('supportUsers');
       if (storedSupportUsers) {
         const parsedUsers = JSON.parse(storedSupportUsers);
-        console.log('Loaded support users from storage:', parsedUsers.length);
         setSupportUsers(parsedUsers);
         return parsedUsers;
       }
       
       return [];
     } catch (err) {
-      console.warn('Error in loadSupportUsers:', err);
       return [];
     }
   };
@@ -152,70 +172,108 @@ export default function Home() {
   const loadMates = async () => {
     try {
       const email = await AsyncStorage.getItem('userEmail');
-      if (!email) {
-        console.warn('No user email found');
-        return;
-      }
+      if (!email) return;
       
-      console.log('Loading mates for:', email);
       setIsLoading(true);
       
-      // First try to load from persistent storage
-      const persistentTeamMembers = await AsyncStorage.getItem(`persistent_team_members_${email}`);
-      if (persistentTeamMembers) {
-        const parsedMembers = JSON.parse(persistentTeamMembers);
-        console.log(`Loaded ${parsedMembers.length} team members from persistent storage`);
-        setActivatedMates(parsedMembers);
-        
-        // Restore to regular storage
-        await AsyncStorage.setItem(`team_members_${email}`, persistentTeamMembers);
-        return;
-      }
-      
-      // If no persistent data, try regular storage
-      const teamMembers = await AsyncStorage.getItem(`team_members_${email}`);
-      if (teamMembers) {
-        const parsedMembers = JSON.parse(teamMembers);
-        console.log(`Loaded ${parsedMembers.length} team members from regular storage`);
-        setActivatedMates(parsedMembers);
-        return;
-      }
-      
-      // If no team members found, try loading from team data
-          const teamData = await AsyncStorage.getItem(`team_${email}`);
-          if (teamData) {
-              const parsedTeam = JSON.parse(teamData);
-        if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
-          console.log(`Loaded ${parsedTeam.teamMembers.length} team members from team data`);
-          setActivatedMates(parsedTeam.teamMembers);
-          
-          // Save to team members storage for future use
-          await AsyncStorage.setItem(`team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
-          await AsyncStorage.setItem(`persistent_team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
-          return;
-        }
-      }
-      
-      // If still no data found, try persistent team data
+      // Always try persistent storage first
       const persistentTeamData = await AsyncStorage.getItem(`persistent_team_${email}`);
       if (persistentTeamData) {
-        const parsedTeam = JSON.parse(persistentTeamData);
-        if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
-          console.log(`Loaded ${parsedTeam.teamMembers.length} team members from persistent team data`);
-          setActivatedMates(parsedTeam.teamMembers);
-          
-          // Save to team members storage for future use
-          await AsyncStorage.setItem(`team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
-          await AsyncStorage.setItem(`persistent_team_members_${email}`, JSON.stringify(parsedTeam.teamMembers));
+        try {
+          const parsedTeam = JSON.parse(persistentTeamData);
+          if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
+            setActivatedMates(parsedTeam.teamMembers);
+            setIsLoading(false);
+        return;
+          }
+        } catch (e) {}
+      }
+      
+      // If no persistent data, try server
+      try {
+        const response = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(email)}/team`);
+        if (response.ok) {
+          const serverData = await response.json();
+          if (serverData.teamMembers && Array.isArray(serverData.teamMembers)) {
+            // Preserve existing team member data and only update availability
+            let updatedTeamMembers;
+            if (activatedMates.length > 0) {
+              // Create a map of existing team members for quick lookup
+              const existingMatesMap = new Map(
+                activatedMates.map(mate => [mate.email, mate])
+              );
+              
+              // Update only availability status from server data
+              updatedTeamMembers = serverData.teamMembers.map(serverMember => {
+                const existingMate = existingMatesMap.get(serverMember.email);
+                if (existingMate) {
+                  // Keep all existing data, just update availability
+                  return {
+                    ...existingMate,
+                    isAvailable: serverMember.isAvailable
+                  };
+                }
+                return serverMember;
+              });
+            } else {
+              updatedTeamMembers = serverData.teamMembers;
+            }
+            
+            const teamData = {
+              epilepsyUser: {
+                email,
+                firstName: await AsyncStorage.getItem('userFirstName') || email.split('@')[0],
+                surname: await AsyncStorage.getItem('userSurname') || ''
+              },
+              teamMembers: updatedTeamMembers
+            };
+            
+            // Save to persistent storage
+            await AsyncStorage.setItem(`persistent_team_${email}`, JSON.stringify(teamData));
+            setActivatedMates(updatedTeamMembers);
+            setIsLoading(false);
           return;
         }
       }
+      } catch (e) {}
+
+      // If still no data, try other storage locations as last resort
+      const storageKeys = [
+        `team_${email}`,
+        `team_members_${email}`,
+        `activatedMates_${email}`,
+        'activatedMates'
+      ];
+
+      for (const key of storageKeys) {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            const teamMembers = Array.isArray(parsed) ? parsed : parsed.teamMembers;
+            if (Array.isArray(teamMembers) && teamMembers.length > 0) {
+              setActivatedMates(teamMembers);
+              
+              // Save to persistent storage for future
+              const teamData = {
+                epilepsyUser: {
+                  email,
+                  firstName: await AsyncStorage.getItem('userFirstName') || email.split('@')[0],
+                  surname: await AsyncStorage.getItem('userSurname') || ''
+                },
+                teamMembers
+              };
+              await AsyncStorage.setItem(`persistent_team_${email}`, JSON.stringify(teamData));
+              setIsLoading(false);
+          return;
+            }
+          } catch (e) {}
+        }
+      }
       
-      // If no data found anywhere, set empty array
-      console.log('No team members found anywhere');
       setActivatedMates([]);
     } catch (err) {
-      console.error('Error loading mates:', err);
+      console.error('Error in loadMates:', err);
       setActivatedMates([]);
     } finally {
       setIsLoading(false);
@@ -223,189 +281,123 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      setBatteryLevel(78);
-      await loadSupportUsers();
+    const loadInitialData = async () => {
+      try {
+        const email = await AsyncStorage.getItem('userEmail');
+        if (email) {
+          setUserEmail(email);
+          const supportUsersData = await loadSupportUsers();
+          setSupportUsers(supportUsersData || []);
+          await loadMates();
+        }
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      } finally {
       setIsLoading(false);
+      }
     };
-    loadData();
-  }, []);
 
-  // Load mates when userEmail is available
-  useEffect(() => {
-    if (userEmail) {
-      loadMates();
-    }
-  }, [userEmail]);
+    loadInitialData();
+  }, []); // Run only once on mount
 
-  // Force reload every time we come back to the home page
+  // Modify useFocusEffect to be more conservative
   useFocusEffect(
     React.useCallback(() => {
-      // Prevent excessive reloading with a time-based throttle
       const now = Date.now();
-      if (now - lastRefreshTime < 500) {
-        console.log('Skipping reload - too soon since last refresh');
+      if (now - lastRefreshTime < 5000 || !userEmail || isLoading) {
         return;
       }
-      
       setLastRefreshTime(now);
-      console.log('Home page focused, reloading all data');
-      
-      if (!userEmail) {
-        // Try to load user email first if we don't have it
-        AsyncStorage.getItem('userEmail').then(email => {
-          if (email) {
-            setUserEmail(email);
-            console.log('Loaded user email:', email);
-          }
-        });
-        return;
-      }
 
-      // CRITICAL: Check for availability backup data first
-      const checkForAvailabilityBackups = async () => {
+      let isMounted = true;
+      const refreshData = async () => {
         try {
-          const keys = await AsyncStorage.getAllKeys();
-          const availabilityBackupKeys = keys.filter(key => 
-            key.startsWith('availabilityBackup_') && key.includes(`_${userEmail}_`)
-          );
+          // Only update support users' availability status
+          const supportUsersData = await loadSupportUsers();
+          if (!isMounted) return;
           
-          if (availabilityBackupKeys.length > 0) {
-            console.log('Found availability backup keys:', availabilityBackupKeys);
+          if (supportUsersData && activatedMates.length > 0) {
+            // Create a map of email to availability for quick lookup
+            const availabilityMap = new Map(
+              supportUsersData.map(user => [user.email, user.isAvailable])
+            );
             
-            // Group by original key
-            const backupsByOriginalKey = {};
-            for (const backupKey of availabilityBackupKeys) {
-              // Extract original key and timestamp
-              const parts = backupKey.split('_');
-              const timestamp = parts[parts.length - 1];
-              const originalKey = backupKey.replace(`availabilityBackup_`, '').replace(`_${timestamp}`, '');
-              
-              if (!backupsByOriginalKey[originalKey]) {
-                backupsByOriginalKey[originalKey] = [];
+            // Only update if availability has actually changed
+            const updatedMates = activatedMates.map(mate => {
+              const newAvailability = availabilityMap.get(mate.email);
+              if (newAvailability !== undefined && newAvailability !== mate.isAvailable) {
+                return { ...mate, isAvailable: newAvailability };
               }
-              backupsByOriginalKey[originalKey].push({
-                backupKey,
-                timestamp: parseInt(timestamp)
-              });
-            }
+              return mate;
+            });
             
-            // Check if we need to restore any backups
-            for (const originalKey of Object.keys(backupsByOriginalKey)) {
-              // Sort backups by timestamp (most recent first)
-              const backups = backupsByOriginalKey[originalKey].sort((a, b) => b.timestamp - a.timestamp);
-              const mostRecentBackup = backups[0];
+            // Only update state if there are actual changes
+            if (!areMatesEqual(activatedMates, updatedMates)) {
+              setActivatedMates(updatedMates);
               
-              // Check if the original key exists
-              const originalData = await AsyncStorage.getItem(originalKey);
-              if (!originalData) {
-                console.log(`Original key ${originalKey} not found, restoring from backup`);
-                
-                // Restore from backup
-                const backupData = await AsyncStorage.getItem(mostRecentBackup.backupKey);
-                if (backupData) {
-                  await AsyncStorage.setItem(originalKey, backupData);
-                  console.log(`Restored ${originalKey} from backup`);
-                }
-              }
+              // Update storage with new availability
+              const teamData = {
+                epilepsyUser: {
+                  email: userEmail,
+                  firstName: await AsyncStorage.getItem('userFirstName') || userEmail.split('@')[0],
+                  surname: await AsyncStorage.getItem('userSurname') || ''
+                },
+                teamMembers: updatedMates
+              };
+              await AsyncStorage.setItem(`persistent_team_${userEmail}`, JSON.stringify(teamData));
             }
-            
-            // Clean up old backups
-            const keysToRemove = availabilityBackupKeys;
-            await AsyncStorage.multiRemove(keysToRemove);
-            console.log('Cleaned up availability backups');
           }
-        } catch (e) {
-          console.warn('Error checking availability backups:', e);
-        }
+        } catch (error) {}
       };
       
-      // Check for backups before loading data
-      checkForAvailabilityBackups().then(() => {
-        // First refresh support users to get updated availability
-        loadSupportUsers().then(() => {
-          console.log('Support users loaded, waiting for a moment before loading mates...');
-          
-          // Debug current mates before loading
-          console.log('Current activated mates before reload:', activatedMates);
-          
-          // ENHANCED: Implement a more robust loading strategy with multiple attempts
-          // This helps ensure data is loaded properly after login
-          const attemptLoadWithRetries = async (attempt = 1, maxAttempts = 3) => {
-            console.log(`Attempt ${attempt}/${maxAttempts} to load mates data`);
-            
-            // Longer delay for each subsequent attempt
-            const delay = 500 * attempt;
-            await new Promise(resolve => setTimeout(resolve, delay));
-            
-            const success = await loadMates();
-            
-            if (success) {
-              console.log(`Successfully loaded mates on attempt ${attempt}, found ${activatedMates.length} mates`);
-              return true;
-            } else if (attempt < maxAttempts) {
-              console.log(`Failed to load mates on attempt ${attempt}, will retry...`);
-              return attemptLoadWithRetries(attempt + 1, maxAttempts);
-            } else {
-              console.warn(`Failed to load mates after ${maxAttempts} attempts`);
-              return false;
-            }
-          };
-          
-          // Start the loading process with retries
-          attemptLoadWithRetries();
-        });
-      });
-      
-      // When home page is focused, also check for any stored 
-      // user-specific team selections and log them for debugging
-      const debugUserTeams = async () => {
-        try {
-          const email = await AsyncStorage.getItem('userEmail');
-          if (!email) return;
-          
-          console.log('Debugging user team data for:', email);
-          const keys = await AsyncStorage.getAllKeys();
-          const userKeys = keys.filter(k => 
-            k.includes(`_${email}`) || 
-            k.includes('team_') || 
-            k.includes('activatedMates') || 
-            k.includes('persistentTeam') ||
-            k.includes('logoutBackup') ||
-            k.includes('availabilityBackup')
-          );
-          
-          console.log('User-related keys:', userKeys);
-          
-          // Check the most important keys
-          const priorityKeys = [
-            `formatted_mates_${email}`,
-            `team_${email}`,
-            `user_${email}_team`,
-            `activatedMatesEmails_${email}`,
-            `activatedMates_${email}`,
-            `persistentTeam_${email}`
-          ];
-          
-          for (const key of priorityKeys) {
-            const value = await AsyncStorage.getItem(key);
-            console.log(`[Home Debug] ${key}:`, value);
-          }
-          
-          // Also check for logout backups
-          const logoutBackupKeys = keys.filter(key => key.startsWith(`logoutBackup_${email}_`));
-          if (logoutBackupKeys.length > 0) {
-            console.log('Found logout backup keys:', logoutBackupKeys);
-          }
-        } catch (e) {
-          console.error('Error debugging user teams:', e);
-        }
+      refreshData();
+      return () => {
+        isMounted = false;
       };
-      
-      debugUserTeams();
-      
-    }, [userEmail, lastRefreshTime, activatedMates]) // Add activatedMates to dependency array to track changes
+    }, [userEmail, lastRefreshTime, isLoading, activatedMates, areMatesEqual])
   );
+          
+  // Memoize the FlatList data
+  const matesList = useMemo(() => {
+    return activatedMates.map(mate => ({
+      ...mate,
+      key: mate.email
+    }));
+  }, [activatedMates]);
+            
+  // Memoize the render item function
+  const renderMateItem = useCallback(({ item }) => (
+    <View style={[
+      styles.mateItem,
+      !item.isAvailable && styles.unavailableMate
+    ]}>
+      <Text style={styles.mateText}>{item.firstName} {item.surname}</Text>
+      <Text style={[
+        styles.availabilityText,
+        item.isAvailable ? styles.availableText : styles.unavailableText
+      ]}>
+        {item.isAvailable ? '(Available)' : '(Unavailable)'}
+      </Text>
+    </View>
+  ), []);
+      
+  // Modify the onRefresh handler to be more efficient
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return; // Prevent multiple simultaneous refreshes
+    
+    setRefreshing(true);
+    try {
+      const supportUsersData = await loadSupportUsers();
+      if (supportUsersData) {
+        setSupportUsers(supportUsersData);
+        await loadMates();
+          }
+    } catch (error) {
+      console.warn('Error during refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing]);
 
   const toggleAlert = async () => {
     if (!userEmail) return;
@@ -464,94 +456,7 @@ export default function Home() {
     }
   };
 
-  // Add a function to handle manual refresh
-  const onRefresh = async () => {
-    console.log('Manual refresh triggered');
-    setRefreshing(true);
-    
-    try {
-      // First refresh support users to get updated availability
-      await loadSupportUsers();
-      
-      // Then load mates with the updated availability
-      await loadMates();
-      
-      console.log('Manual refresh completed');
-    } catch (e) {
-      console.error('Error during manual refresh:', e);
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // Add a periodic refresh mechanism to automatically update data
-  useEffect(() => {
-    if (!userEmail) return;
-    
-    console.log('Setting up periodic refresh for availability status');
-    
-    // Set up interval to refresh data every 5 seconds
-    const refreshInterval = setInterval(async () => {
-      console.log('Periodic refresh triggered');
-      
-      // Only refresh support users to get latest availability
-      try {
-        const updatedSupportUsers = await loadSupportUsers();
-        
-        // If we have activated mates, update their availability status
-        if (activatedMates.length > 0 && updatedSupportUsers && updatedSupportUsers.length > 0) {
-          const updatedMates = activatedMates.map(mate => {
-            // Find this support user in the updated list
-            const supportUser = updatedSupportUsers.find(user => user.email === mate.email);
-            
-            if (supportUser) {
-              // Update availability from the fresh data
-              return {
-                ...mate,
-                isAvailable: supportUser.isAvailable
-              };
-            }
-            return mate;
-          });
-          
-          // Only update state if availability actually changed
-          const availabilityChanged = updatedMates.some((mate, index) => 
-            mate.isAvailable !== activatedMates[index].isAvailable
-          );
-          
-          if (availabilityChanged) {
-            console.log('Availability status changed, updating UI');
-            setActivatedMates(updatedMates);
-            
-            // Also update storage
-            const matesJson = JSON.stringify(updatedMates);
-            await AsyncStorage.setItem(`formatted_mates_${userEmail}`, matesJson);
-            await AsyncStorage.setItem(`activatedMates_${userEmail}`, matesJson);
-          }
-        }
-      } catch (e) {
-        console.warn('Error in periodic refresh:', e);
-      }
-    }, 5000); // Check every 5 seconds
-    
-    // Clean up interval on unmount
-    return () => clearInterval(refreshInterval);
-  }, [userEmail, activatedMates]);
-
-  return (
-    <ScrollView
-      contentContainerStyle={styles.scrollContainer}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#9747FF']}
-          tintColor={'#9747FF'}
-        />
-      }
-    >
-      <View style={styles.container}>
+  const StatusSection = useCallback(() => (
         <View style={styles.statusContainer}>
           <View style={styles.statusIconWrapper}>
             {watchStatus === 'ok' ? (
@@ -583,12 +488,16 @@ export default function Home() {
             </View>
           )}
         </View>
+  ), [watchStatus]);
 
+  const BatterySection = useCallback(() => (
         <View style={styles.centeredRow}>
           <Text style={styles.label}>Watch battery:</Text>
           <Text style={styles.value}>{batteryLevel}%</Text>
         </View>
+  ), [batteryLevel]);
 
+  const AlertSection = useCallback(() => (
         <View style={styles.alertRow}>
           <Text style={styles.label}>Alert mates:</Text>
           <Switch
@@ -598,48 +507,83 @@ export default function Home() {
             thumbColor={alertOn ? '#ffffff' : '#f4f3f4'}
           />
         </View>
+  ), [alertOn, toggleAlert]);
 
+  const ListHeaderComponent = useCallback(() => (
+    <>
+      <StatusSection />
+      <BatterySection />
+      <AlertSection />
         <View style={styles.centeredContainer}>
           <Text style={styles.labels}>Activated mates:</Text>
-          {activatedMates.length > 0 ? (
+      </View>
+    </>
+  ), [StatusSection, BatterySection, AlertSection]);
+
+  const ListEmptyComponent = useCallback(() => (
+    <Text style={styles.noMatesText}>No mates activated</Text>
+  ), []);
+
+  return (
+    <View style={styles.container}>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading your team...</Text>
+        </View>
+      ) : (
             <FlatList
-              data={activatedMates}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, index) => item.email || index.toString()}
+          data={matesList}
+          keyExtractor={item => item.key}
               renderItem={({ item }) => (
-                <View style={[
-                  styles.mateItem,
-                  !item.isAvailable && styles.unavailableMate
+            <View style={styles.teamMemberRow}>
+              <View style={styles.teamMemberContent}>
+                <Text style={styles.teamMemberName}>
+                  {item.firstName} {item.surname}
+                </Text>
+                <Text style={[
+                  styles.availabilityStatus,
+                  item.isAvailable ? styles.availableStatus : styles.unavailableStatus
                 ]}>
-                  <Text style={styles.mateText}>{item.firstName} {item.surname}</Text>
-                  <Text style={[
-                    styles.availabilityText,
-                    item.isAvailable ? styles.availableText : styles.unavailableText
-                  ]}>
-                    {item.isAvailable ? '(Available)' : '(Unavailable)'}
+                  {item.isAvailable ? 'Available' : 'Unavailable'}
                   </Text>
+              </View>
                 </View>
               )}
-              contentContainerStyle={styles.centeredMatesList}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          contentContainerStyle={styles.listContentContainer}
+          style={[styles.flatList, styles.teamMembersList]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#9747FF']}
+              tintColor={'#9747FF'}
             />
-          ) : (
-            <Text style={styles.noMatesText}>No mates activated</Text>
+          }
+          showsVerticalScrollIndicator={false}
+        />
           )}
         </View>
-      </View>
-    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
   container: {
     flex: 1,
+  },
+  flatList: {
+    flex: 1,
+    width: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContentContainer: {
     paddingTop: 80,
+    paddingBottom: 20,
   },
   statusContainer: {
     alignItems: 'center',
@@ -700,15 +644,17 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   centeredContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    width: '100%',
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    alignItems: 'center'
   },
   labels: {
-    fontSize: 13,
-    color: '#000',
-    marginRight: 8,
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2E3A59',
+    marginBottom: 15,
+    textAlign: 'center'
   },
   mateItem: {
     backgroundColor: '#FFFFFF',
@@ -750,13 +696,61 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   noMatesText: {
-    color: '#757575',
+    fontSize: 14,
+    color: '#666',
     fontStyle: 'italic',
-    textAlign: 'center',
     marginTop: 10,
   },
-  centeredMatesList: {
-    justifyContent: 'center',
-    paddingHorizontal: 10,
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 10,
+  },
+  matesListContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    marginHorizontal: 20,
+  },
+  teamMemberRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    borderRadius: 8,
+  },
+  teamMemberContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  teamMemberName: {
+    fontSize: 16,
+    color: '#2E3A59',
+    fontWeight: '500',
+  },
+  availabilityStatus: {
+    fontSize: 12,
+    marginLeft: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    color: '#FFFFFF',
+  },
+  availableStatus: {
+    backgroundColor: '#4CAF50',
+  },
+  unavailableStatus: {
+    backgroundColor: '#6B7280',
+  },
+  teamMembersList: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginHorizontal: 20,
+    width: 'auto',
   },
 });
