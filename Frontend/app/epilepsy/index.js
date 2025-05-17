@@ -176,38 +176,32 @@ export default function Home() {
       
       setIsLoading(true);
       
-      // Always try persistent storage first
+      // Try persistent storage first
       const persistentTeamData = await AsyncStorage.getItem(`persistent_team_${email}`);
       if (persistentTeamData) {
-        try {
-          const parsedTeam = JSON.parse(persistentTeamData);
-          if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
-            setActivatedMates(parsedTeam.teamMembers);
-            setIsLoading(false);
-        return;
-          }
-        } catch (e) {}
+        const parsedTeam = JSON.parse(persistentTeamData);
+        if (parsedTeam.teamMembers && Array.isArray(parsedTeam.teamMembers)) {
+          setActivatedMates(parsedTeam.teamMembers);
+          setIsLoading(false);
+          return;
+        }
       }
       
-      // If no persistent data, try server
+      // Try server
       try {
         const response = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(email)}/team`);
         if (response.ok) {
           const serverData = await response.json();
           if (serverData.teamMembers && Array.isArray(serverData.teamMembers)) {
-            // Preserve existing team member data and only update availability
             let updatedTeamMembers;
             if (activatedMates.length > 0) {
-              // Create a map of existing team members for quick lookup
               const existingMatesMap = new Map(
                 activatedMates.map(mate => [mate.email, mate])
               );
               
-              // Update only availability status from server data
               updatedTeamMembers = serverData.teamMembers.map(serverMember => {
                 const existingMate = existingMatesMap.get(serverMember.email);
                 if (existingMate) {
-                  // Keep all existing data, just update availability
                   return {
                     ...existingMate,
                     isAvailable: serverMember.isAvailable
@@ -228,16 +222,15 @@ export default function Home() {
               teamMembers: updatedTeamMembers
             };
             
-            // Save to persistent storage
             await AsyncStorage.setItem(`persistent_team_${email}`, JSON.stringify(teamData));
             setActivatedMates(updatedTeamMembers);
             setIsLoading(false);
-          return;
+            return;
+          }
         }
-      }
-      } catch (e) {}
+      } catch {}
 
-      // If still no data, try other storage locations as last resort
+      // Try other storage locations as last resort
       const storageKeys = [
         `team_${email}`,
         `team_members_${email}`,
@@ -254,7 +247,6 @@ export default function Home() {
             if (Array.isArray(teamMembers) && teamMembers.length > 0) {
               setActivatedMates(teamMembers);
               
-              // Save to persistent storage for future
               const teamData = {
                 epilepsyUser: {
                   email,
@@ -265,15 +257,14 @@ export default function Home() {
               };
               await AsyncStorage.setItem(`persistent_team_${email}`, JSON.stringify(teamData));
               setIsLoading(false);
-          return;
+              return;
             }
-          } catch (e) {}
+          } catch {}
         }
       }
       
       setActivatedMates([]);
-    } catch (err) {
-      console.error('Error in loadMates:', err);
+    } catch {
       setActivatedMates([]);
     } finally {
       setIsLoading(false);
@@ -290,17 +281,16 @@ export default function Home() {
           setSupportUsers(supportUsersData || []);
           await loadMates();
         }
-      } catch (error) {
-        console.error('Error loading initial data:', error);
+      } catch {
+        setIsLoading(false);
       } finally {
-      setIsLoading(false);
+        setIsLoading(false);
       }
     };
 
     loadInitialData();
-  }, []); // Run only once on mount
+  }, []);
 
-  // Modify useFocusEffect to be more conservative
   useFocusEffect(
     React.useCallback(() => {
       const now = Date.now();
@@ -312,17 +302,14 @@ export default function Home() {
       let isMounted = true;
       const refreshData = async () => {
         try {
-          // Only update support users' availability status
           const supportUsersData = await loadSupportUsers();
           if (!isMounted) return;
           
           if (supportUsersData && activatedMates.length > 0) {
-            // Create a map of email to availability for quick lookup
             const availabilityMap = new Map(
               supportUsersData.map(user => [user.email, user.isAvailable])
             );
             
-            // Only update if availability has actually changed
             const updatedMates = activatedMates.map(mate => {
               const newAvailability = availabilityMap.get(mate.email);
               if (newAvailability !== undefined && newAvailability !== mate.isAvailable) {
@@ -331,11 +318,9 @@ export default function Home() {
               return mate;
             });
             
-            // Only update state if there are actual changes
             if (!areMatesEqual(activatedMates, updatedMates)) {
               setActivatedMates(updatedMates);
               
-              // Update storage with new availability
               const teamData = {
                 epilepsyUser: {
                   email: userEmail,
@@ -347,7 +332,7 @@ export default function Home() {
               await AsyncStorage.setItem(`persistent_team_${userEmail}`, JSON.stringify(teamData));
             }
           }
-        } catch (error) {}
+        } catch {}
       };
       
       refreshData();
@@ -356,7 +341,22 @@ export default function Home() {
       };
     }, [userEmail, lastRefreshTime, isLoading, activatedMates, areMatesEqual])
   );
-          
+
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    
+    setRefreshing(true);
+    try {
+      const supportUsersData = await loadSupportUsers();
+      if (supportUsersData) {
+        setSupportUsers(supportUsersData);
+        await loadMates();
+      }
+    } catch {} finally {
+      setRefreshing(false);
+    }
+  }, [refreshing]);
+
   // Memoize the FlatList data
   const matesList = useMemo(() => {
     return activatedMates.map(mate => ({
@@ -381,24 +381,6 @@ export default function Home() {
     </View>
   ), []);
       
-  // Modify the onRefresh handler to be more efficient
-  const onRefresh = useCallback(async () => {
-    if (refreshing) return; // Prevent multiple simultaneous refreshes
-    
-    setRefreshing(true);
-    try {
-      const supportUsersData = await loadSupportUsers();
-      if (supportUsersData) {
-        setSupportUsers(supportUsersData);
-        await loadMates();
-          }
-    } catch (error) {
-      console.warn('Error during refresh:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refreshing]);
-
   const toggleAlert = async () => {
     if (!userEmail) return;
     

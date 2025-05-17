@@ -186,15 +186,12 @@ export default function Home() {
   // Define fetchTeam first, without dependencies on debouncedFetchTeam
   const fetchTeam = useCallback(async () => {
     try {
-        const email = await AsyncStorage.getItem('userEmail');
-        if (!email) {
-        console.warn('No user email found');
-          return;
-      }
-
+      const email = await AsyncStorage.getItem('userEmail');
+      if (!email) return;
+      
       setIsLoading(true);
       
-      // First try to load from persistent storage
+      // Try persistent storage first
       const persistentTeamsData = await AsyncStorage.getItem(`persistent_all_teams_${email}`);
       if (persistentTeamsData) {
         const parsedTeams = JSON.parse(persistentTeamsData);
@@ -206,10 +203,8 @@ export default function Home() {
           const teamData = await AsyncStorage.getItem(`persistent_team_${email}_${firstTeam.email}`);
           if (teamData) {
             const parsedTeam = JSON.parse(teamData);
-            // Ensure we preserve team membership while updating availability
             if (parsedTeam.teamMembers) {
               try {
-                // Get latest availability for all team members
                 const availabilityResponse = await fetch(`${BASE_URL}/api/support-users?timestamp=${Date.now()}`);
                 if (availabilityResponse.ok) {
                   const supportUsersData = await availabilityResponse.json();
@@ -219,10 +214,8 @@ export default function Home() {
                   
                   const updatedMembers = parsedTeam.teamMembers.map(member => {
                     if (member.email === email) {
-                      // For current user, use the local state
                       return { ...member, isAvailable };
                     }
-                    // For other members, use server data
                     return {
                       ...member,
                       isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
@@ -231,7 +224,6 @@ export default function Home() {
                   
                   setTeam({ ...parsedTeam, teamMembers: updatedMembers });
                 } else {
-                  // If server fetch fails, at least update current user
                   const updatedMembers = parsedTeam.teamMembers.map(member => {
                     if (member.email === email) {
                       return { ...member, isAvailable };
@@ -240,9 +232,7 @@ export default function Home() {
                   });
                   setTeam({ ...parsedTeam, teamMembers: updatedMembers });
                 }
-              } catch (error) {
-                console.warn('Error fetching availability:', error);
-                // On error, still update current user
+              } catch {
                 const updatedMembers = parsedTeam.teamMembers.map(member => {
                   if (member.email === email) {
                     return { ...member, isAvailable };
@@ -259,7 +249,7 @@ export default function Home() {
         return;
       }
       
-      // If no persistent data, try regular storage with the same approach
+      // If no persistent data, try regular storage
       const teamsData = await AsyncStorage.getItem(`all_teams_${email}`);
       if (teamsData) {
         const parsedTeams = JSON.parse(teamsData);
@@ -281,10 +271,8 @@ export default function Home() {
                   
                   const updatedMembers = parsedTeam.teamMembers.map(member => {
                     if (member.email === email) {
-                      // For current user, use the local state
                       return { ...member, isAvailable };
                     }
-                    // For other members, use server data
                     return {
                       ...member,
                       isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
@@ -293,24 +281,21 @@ export default function Home() {
                   
                   setTeam({ ...parsedTeam, teamMembers: updatedMembers });
                 } else {
-                  // If server fetch fails, at least update current user
                   const updatedMembers = parsedTeam.teamMembers.map(member => {
                     if (member.email === email) {
                       return { ...member, isAvailable };
-              }
-              return member;
-            });
-                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
-                }
-              } catch (error) {
-                console.warn('Error fetching availability:', error);
-                // On error, still update current user
-                const updatedMembers = parsedTeam.teamMembers.map(member => {
-                  if (member.email === email) {
-                    return { ...member, isAvailable };
                     }
                     return member;
                   });
+                  setTeam({ ...parsedTeam, teamMembers: updatedMembers });
+                }
+              } catch {
+                const updatedMembers = parsedTeam.teamMembers.map(member => {
+                  if (member.email === email) {
+                    return { ...member, isAvailable };
+                  }
+                  return member;
+                });
                 setTeam({ ...parsedTeam, teamMembers: updatedMembers });
               }
             } else {
@@ -319,8 +304,55 @@ export default function Home() {
           }
         }
       }
+
+      // If no data in storage, try loading from server
+      try {
+        const response = await fetch(`${BASE_URL}/api/support-user/${encodeURIComponent(email)}/teams`);
+        if (response.ok) {
+          const serverTeams = await response.json();
+          if (Array.isArray(serverTeams) && serverTeams.length > 0) {
+            setAllTeams(serverTeams);
+            
+            // Load first team's details
+            const firstTeam = serverTeams[0];
+            const teamResponse = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(firstTeam.email)}/team`);
+            if (teamResponse.ok) {
+              const teamData = await teamResponse.json();
+              if (teamData.teamMembers) {
+                const availabilityResponse = await fetch(`${BASE_URL}/api/support-users?timestamp=${Date.now()}`);
+                if (availabilityResponse.ok) {
+                  const supportUsersData = await availabilityResponse.json();
+                  const availabilityMap = new Map(
+                    supportUsersData.map(user => [user.email, user.isAvailable])
+                  );
+                  
+                  const updatedMembers = teamData.teamMembers.map(member => {
+                    if (member.email === email) {
+                      return { ...member, isAvailable };
+                    }
+                    return {
+                      ...member,
+                      isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
+                    };
+                  });
+                  
+                  const fullTeamData = {
+                    epilepsyUser: firstTeam,
+                    teamMembers: updatedMembers
+                  };
+                  
+                  setTeam(fullTeamData);
+                  
+                  // Save to storage for future
+                  await AsyncStorage.setItem(`persistent_all_teams_${email}`, JSON.stringify(serverTeams));
+                  await AsyncStorage.setItem(`persistent_team_${email}_${firstTeam.email}`, JSON.stringify(fullTeamData));
+                }
+              }
+            }
+          }
+        }
+      } catch {}
     } catch (err) {
-      console.error('Error in fetchTeam:', err.message);
       setAllTeams([]);
       setTeam(null);
     } finally {
@@ -540,10 +572,8 @@ export default function Home() {
   // Add helper function to update availability status
   const updateAvailabilityStatus = async (newStatus) => {
     try {
-      // Update local storage for availability only
       await AsyncStorage.setItem(`availability_${userEmail}`, JSON.stringify(newStatus));
       
-      // Update server
       const response = await fetch(`${BASE_URL}/api/user/${encodeURIComponent(userEmail)}/availability`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -554,25 +584,20 @@ export default function Home() {
         throw new Error('Failed to update server');
       }
 
-      // Only update the availability status in the UI, don't modify team membership
       if (team?.teamMembers) {
-        // Create a new reference for teamMembers but only update the availability
         const updatedMembers = team.teamMembers.map(member => {
           if (member.email === userEmail) {
-            // Preserve all member data, only update isAvailable
             return { ...member, isAvailable: newStatus };
           }
           return member;
         });
 
-        // Update team state with new availability but preserve all other data
         setTeam(prevTeam => ({
           ...prevTeam,
           teamMembers: updatedMembers
         }));
       }
     } catch (error) {
-      // Revert the UI state if update fails
       setIsAvailable(!newStatus);
       throw error;
     }
