@@ -649,7 +649,7 @@ export default function Home() {
                 )}
 
                 <Text style={styles.teamDetailsHeader}>
-                  {team.epilepsyUser.firstName}{team.epilepsyUser.surname ? ` ${team.epilepsyUser.surname}` : ''}'s Mates:
+                  {team.epilepsyUser.firstName}{team.epilepsyUser.surname ? ` ${team.epilepsyUser.surname}` : ''}'s mates:
                 </Text>
                 
                 {/* Show alert status for epilepsy user */}
