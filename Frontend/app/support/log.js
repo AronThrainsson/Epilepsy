@@ -138,11 +138,26 @@ const LogScreen = () => {
         <Calendar
           onDayPress={handleDayPress}
           markedDates={{
-            [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
             ...seizures.reduce((acc, s) => {
-              acc[s.date] = { marked: true, dotColor: '#4F46E5' };
+              if (s.date === selectedDate) {
+                acc[s.date] = {
+                  selected: true,
+                  marked: true,
+                  selectedColor: '#4F46E5',
+                  dotColor: '#4F46E5'
+                };
+              } else {
+                acc[s.date] = {
+                  marked: true,
+                  dotColor: '#4F46E5'
+                };
+              }
               return acc;
-            }, {})
+            }, {}),
+            // Add selection for dates without seizures
+            ...(seizures.every(s => s.date !== selectedDate) ? {
+              [selectedDate]: { selected: true, selectedColor: '#4F46E5' }
+            } : {})
           }}
           theme={{
             selectedDayBackgroundColor: '#4F46E5',
@@ -217,6 +232,7 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 10,
     paddingTop: Platform.OS === 'ios' ? 30 : 0,
+    backgroundColor: '#F9F0FF',
   },
   header: {
     flexDirection: 'row',
@@ -228,7 +244,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    marginLeft: 10,
+    marginRight: 10,
+    marginTop: -25,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -266,6 +286,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
   },
   seizureTime: {
     fontWeight: 'bold',
@@ -295,31 +322,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2E3A59',
   },
-  closeIcon: {
-    position: 'absolute',
-    top: 16,
-    right: 16
-  },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: '#ddd',
+    borderRadius: 10,
     padding: 12,
-    marginTop: 10,
+    marginTop: 12,
     minHeight: 100,
     textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
   },
   saveButton: {
     backgroundColor: '#CB97F0',
-    padding: 12,
-    marginTop: 20,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 16,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   saveButtonText: {
-    color: 'white',
-    textAlign: 'center',
+    color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
   },
+  closeIcon: {
+    alignSelf: 'flex-end',
+    padding: 10,
+  }
 });
 
 export default LogScreen;
