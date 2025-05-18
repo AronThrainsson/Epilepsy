@@ -85,6 +85,9 @@ class SeizureDetection {
     this.spO2Buffer = [];
     this.movementBuffer = [];
     this.seizureDetected = false;
+    this.notificationSent = false; // Track if notification was sent
+    this.notificationLock = false; // Lock for notification sending
+    this.resetTimeout = null; // Timeout for resetting detection state
     this.currentUser = {
       id: 1, // Default user ID
       email: "default@user.com",
@@ -102,8 +105,9 @@ class SeizureDetection {
   }
 
   async checkForSeizure() {
-    if (this.seizureDetected) {
-      return; // Stop if a seizure has already been detected
+    // Return immediately if notification already sent or we're in the process of sending one
+    if (this.notificationSent || this.notificationLock) {
+      return;
     }
 
     if (this.heartRateBuffer.length < 5 || this.spO2Buffer.length < 5 || this.movementBuffer.length < 5) {
@@ -117,13 +121,15 @@ class SeizureDetection {
 
     const seizureDetected = avgHeartRate > 120 || avgSpO2 < 92 || movementIntensity === 'HIGH';
 
-    if (seizureDetected) {
+    if (seizureDetected && !this.seizureDetected && !this.notificationSent) {
+      // Lock notification sending to prevent race conditions
+      this.notificationLock = true;
+      this.seizureDetected = true;
+
+      console.log('🚨 Seizure detected, logging to database...');
+
       const timestamp = new Date().toISOString();
       const note = `Seizure detected with HR: ${avgHeartRate.toFixed(1)}, SpO2: ${avgSpO2.toFixed(1)}, Movement: ${movementIntensity}`;
-      console.log('🚨 Seizure detected, alert sent to mates');
-      console.log('Summary:', note);
-
-      this.seizureDetected = true;
 
       try {
         await saveSeizureToDB(
@@ -135,10 +141,30 @@ class SeizureDetection {
           note
         );
 
-        sendPushNotification('Seizure Alert', 'A seizure has been detected. Alert sent to mates.');
+        // Only mark as sent to prevent further database entries
+        if (!this.notificationSent) {
+          this.notificationSent = true;
+          // TO RE-ENABLE NOTIFICATIONS IN THE FUTURE, UNCOMMENT THE LINE BELOW:
+          // await sendPushNotification('Seizure Alert', 'A seizure has been detected. Alert sent to mates.');
+          console.log('✅ Notification sending is currently disabled');
+        }
       } catch (error) {
-        console.error('❌ Error saving seizure:', error);
+        console.error('❌ Error processing seizure:', error);
+      } finally {
+        this.notificationLock = false;
       }
+
+      // Clear any existing timeout
+      if (this.resetTimeout) {
+        clearTimeout(this.resetTimeout);
+      }
+
+      // Set a new timeout to reset detection state
+      this.resetTimeout = setTimeout(() => {
+        console.log('✅ Resetting seizure detection state');
+        this.seizureDetected = false;
+        this.notificationSent = false;
+      }, 30000); // 30 seconds cooldown before allowing new notifications
     }
   }
 

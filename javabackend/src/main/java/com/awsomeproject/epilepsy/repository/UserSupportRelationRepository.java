@@ -15,8 +15,7 @@ public interface UserSupportRelationRepository extends JpaRepository<UserSupport
     List<UserSupportRelation> findByEpilepsyUser(User epilepsyUser);
 
     boolean existsByEpilepsyUserAndSupportUser(User epilepsyUser, User supportUser);
-    
-    List<UserSupportRelation> findBySupportUser(User supportUser);
+
 
     @Query("SELECT r FROM UserSupportRelation r WHERE r.supportUser.email = :email")
     List<UserSupportRelation> findBySupportUserEmail(@Param("email") String email);
