@@ -65,10 +65,59 @@ export default function Layout() {
           text: 'Logout',
           onPress: async () => {
             try {
-              await AsyncStorage.clear();
+              const userEmail = await AsyncStorage.getItem('userEmail');
+              if (!userEmail) {
+                router.replace('/login');
+                return;
+              }
+
+              // Create backup timestamp
+              const timestamp = Date.now();
+              const backupKey = `logoutBackup_${userEmail}_${timestamp}`;
+
+              // Gather all team-related data
+              const dataToBackup = {
+                userEmail,
+                timestamp,
+                teamData: await AsyncStorage.getItem(`team_${userEmail}`),
+                persistentTeamData: await AsyncStorage.getItem(`persistent_team_${userEmail}`),
+                teamMembers: await AsyncStorage.getItem(`team_members_${userEmail}`),
+                persistentTeamMembers: await AsyncStorage.getItem(`persistent_team_members_${userEmail}`),
+                activatedMates: await AsyncStorage.getItem(`activatedMates_${userEmail}`),
+                activatedMatesEmails: await AsyncStorage.getItem(`activatedMatesEmails_${userEmail}`)
+              };
+
+              // Save backup
+              await AsyncStorage.setItem(backupKey, JSON.stringify(dataToBackup));
+              console.log('Created logout backup:', backupKey);
+
+              // Get all keys to find which ones to keep
+              const allKeys = await AsyncStorage.getAllKeys();
+              
+              // Keep backup data and some settings
+              const keysToKeep = allKeys.filter(key => 
+                key.startsWith('logoutBackup_') || 
+                key.startsWith('persistent_') ||
+                key === `team_${userEmail}` ||
+                key === `team_members_${userEmail}` ||
+                key === `activatedMates_${userEmail}`
+              );
+              
+              const keysToRemove = allKeys.filter(key => !keysToKeep.includes(key));
+              
+              // Remove non-backup keys
+              if (keysToRemove.length > 0) {
+                await AsyncStorage.multiRemove(keysToRemove);
+              }
+
+              // Force a flush to ensure everything is written
+              await AsyncStorage.flushGetRequests();
+              
+              // Navigate to login
               router.replace('/login');
             } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
+              console.error('Error during logout:', error);
+              Alert.alert('Error', 'Failed to logout properly. Please try again.');
             }
           },
         },

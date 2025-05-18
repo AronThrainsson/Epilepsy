@@ -32,6 +32,9 @@ public class User {
     @Column(name = "info_during_seazure")
     private String infoDuringSeazure;
 
+    @Column(name = "is_available")
+    private Boolean isAvailable = true;
+
     public User() {}
 
     public User(String email, String password, String firstName, String surname, String phone, Role role) {
@@ -41,6 +44,7 @@ public class User {
         this.surname = surname;
         this.phone = phone;
         this.role = role;
+        this.isAvailable = true;
     }
 
     public String getPushToken() {
@@ -72,4 +76,7 @@ public class User {
     
     public String getInfoDuringSeazure() { return infoDuringSeazure; }
     public void setInfoDuringSeazure(String infoDuringSeazure) { this.infoDuringSeazure = infoDuringSeazure; }
+
+    public Boolean getIsAvailable() { return isAvailable; }
+    public void setIsAvailable(Boolean isAvailable) { this.isAvailable = isAvailable; }
 }

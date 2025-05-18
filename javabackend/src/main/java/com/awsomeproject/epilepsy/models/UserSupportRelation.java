@@ -11,7 +11,8 @@ import jakarta.persistence.*;
 public class UserSupportRelation {
 
     @Id
-    private String id; // Removed @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     @ManyToOne
     @JoinColumn(name = "epilepsy_user_id")

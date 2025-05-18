@@ -49,17 +49,14 @@ export default function Profile() {
     firstName: '',
     surname: '',
     email: '',
-    phone: '',
-    infoDuringSeazure: ''
+    phone: ''
   });
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isEditingSeazureInfo, setIsEditingSeazureInfo] = useState(false);
   const [editingValues, setEditingValues] = useState({
     firstName: '',
     surname: '',
-    phone: '',
-    infoDuringSeazure: ''
+    phone: ''
   });
 
   // Platform-specific header height
@@ -67,25 +64,36 @@ export default function Profile() {
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
   useEffect(() => {
-    AsyncStorage.getItem('userId')
-    .then(userId => {
-      fetch(`${BASE_URL}/api/profile/get/${userId}`)
-        .then(res => res.json())
-        .then(data => {
-          setUser(data);
-          setEditingValues({
-            firstName: data.firstName,
-            surname: data.surname,
-            phone: data.phone,
-            infoDuringSeazure: data.infoDuringSeazure
-          });
-        })
-        .catch(err => {
-          console.error('Failed to load profile:', err);
-          Alert.alert('Error loading profile');
-        })
-    })
+    loadUserProfile();
   }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.error('No user ID found in storage');
+        Alert.alert('Error', 'Could not find user ID. Please log out and log in again.');
+        return;
+      }
+
+      const response = await fetch(`${BASE_URL}/api/profile/get/${userId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load profile: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Loaded profile data:', data);
+      setUser(data);
+      setEditingValues({
+        firstName: data.firstName,
+        surname: data.surname,
+        phone: data.phone
+      });
+    } catch (err) {
+      console.error('Failed to load profile:', err);
+      Alert.alert('Error loading profile', 'Please try again or restart the app.');
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -93,8 +101,7 @@ export default function Profile() {
         ...user,
         firstName: editingValues.firstName,
         surname: editingValues.surname,
-        phone: editingValues.phone,
-        infoDuringSeazure: editingValues.infoDuringSeazure
+        phone: editingValues.phone
       };
 
       const response = await fetch(`${BASE_URL}/api/profile/update`, {
@@ -105,9 +112,7 @@ export default function Profile() {
 
       if (response.ok) {
         setUser(updatedUser);
-        Alert.alert('Profile updated!');
         setIsEditingProfile(false);
-        setIsEditingSeazureInfo(false);
       } else {
         Alert.alert('Failed to update profile');
       }
@@ -286,5 +291,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 10,
     color: '#333',
-  },
+  }
 });
