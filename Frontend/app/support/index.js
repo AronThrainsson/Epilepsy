@@ -186,9 +186,9 @@ export default function Home() {
   // Define fetchTeam first, without dependencies on debouncedFetchTeam
   const fetchTeam = useCallback(async () => {
     try {
-      const email = await AsyncStorage.getItem('userEmail');
+        const email = await AsyncStorage.getItem('userEmail');
       if (!email) return;
-      
+
       setIsLoading(true);
       
       // Try persistent storage first
@@ -280,7 +280,7 @@ export default function Home() {
                   });
                   
                   setTeam({ ...parsedTeam, teamMembers: updatedMembers });
-                } else {
+          } else {
                   const updatedMembers = parsedTeam.teamMembers.map(member => {
                     if (member.email === email) {
                       return { ...member, isAvailable };
@@ -293,9 +293,9 @@ export default function Home() {
                 const updatedMembers = parsedTeam.teamMembers.map(member => {
                   if (member.email === email) {
                     return { ...member, isAvailable };
-                  }
-                  return member;
-                });
+              }
+              return member;
+            });
                 setTeam({ ...parsedTeam, teamMembers: updatedMembers });
               }
             } else {
@@ -330,8 +330,8 @@ export default function Home() {
                     if (member.email === email) {
                       return { ...member, isAvailable };
                     }
-                    return {
-                      ...member,
+                      return {
+                        ...member,
                       isAvailable: availabilityMap.get(member.email) ?? member.isAvailable
                     };
                   });
