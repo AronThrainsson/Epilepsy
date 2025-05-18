@@ -90,7 +90,7 @@ export default function Layout() {
               // Save backup
               await AsyncStorage.setItem(backupKey, JSON.stringify(dataToBackup));
               console.log('Created logout backup:', backupKey);
-
+              
               // Get all keys to find which ones to keep
               const allKeys = await AsyncStorage.getAllKeys();
               
@@ -109,7 +109,7 @@ export default function Layout() {
               if (keysToRemove.length > 0) {
                 await AsyncStorage.multiRemove(keysToRemove);
               }
-
+              
               // Force a flush to ensure everything is written
               await AsyncStorage.flushGetRequests();
               

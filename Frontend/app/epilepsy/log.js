@@ -166,18 +166,23 @@ const LogScreen = () => {
         </View>
       </View>
 
-      <ScrollView
-        style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}>
         <Calendar
           onDayPress={handleDayPress}
           markedDates={{
-            [selectedDate]: { selected: true, selectedColor: '#4F46E5' },
             ...seizures.reduce((acc, s) => {
-              acc[s.date] = { marked: true, dotColor: '#4F46E5' };
+              acc[s.date] = {
+                marked: true,
+                selected: s.date === selectedDate,
+                selectedColor: '#4F46E5',
+                dotColor: s.date === selectedDate ? '#FFFFFF' : '#4F46E5'
+              };
               return acc;
-            }, {})
+            }, {}),
+            // Add selection for dates without seizures
+            ...(seizures.every(s => s.date !== selectedDate) ? {
+              [selectedDate]: { selected: true, selectedColor: '#4F46E5' }
+            } : {})
           }}
           theme={{
             selectedDayBackgroundColor: '#4F46E5',
@@ -188,59 +193,88 @@ const LogScreen = () => {
         />
 
         <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
+        
         <FlatList
           data={filteredSeizures}
           keyExtractor={(item, i) => `${item.timestamp}-${i}`}
           renderItem={renderSeizureItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.listContent}
+          ListFooterComponent={
+            <TouchableOpacity style={styles.logButton} onPress={logSeizure}>
+              <Text style={styles.logButtonText}>+ Log Seizure</Text>
+            </TouchableOpacity>
+          }
+          style={styles.flatListContainer}
         />
+      </View>
 
-        <TouchableOpacity style={styles.logButton} onPress={logSeizure}>
-          <Text style={styles.logButtonText}>+ Log Seizure</Text>
-        </TouchableOpacity>
-
-        <Modal
-          visible={modalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setModalVisible(false)}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          style={styles.modalContainer} 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={-100}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalContainer}
-          >
-            <View style={styles.modalBackground}>
-              <ScrollView contentContainerStyle={styles.modalContent}>
-                <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
-                  <Feather name="x" size={24} color="#4F46E5" />
-                </TouchableOpacity>
-                {selectedSeizure && (
-                  <>
-                    <Text style={styles.modalTitle}>Seizure Details</Text>
-                    <Text>Date: {selectedSeizure.date}</Text>
-                    <Text>Time: {selectedSeizure.time}</Text>
-                    <Text>Duration: {selectedSeizure.duration} minutes</Text>
-                    <Text>Heart Rate: {selectedSeizure.heartRate} bpm</Text>
-                    <Text>SpO2: {selectedSeizure.spO2}%</Text>
-                    <Text>Movement: {selectedSeizure.movement}</Text>
-                    <TextInput
-                      style={styles.noteInput}
-                      value={note}
-                      onChangeText={setNote}
-                      multiline
-                      placeholder="Add your notes here..."
-                    />
-                    <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
-                      <Text style={styles.saveButtonText}>Save Note</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      </ScrollView>
+          <View style={styles.modalBackground}>
+            <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
+              <Feather name="x" size={24} color="#4F46E5" />
+            </TouchableOpacity>
+            <ScrollView 
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {selectedSeizure && (
+                <>
+                  <Text style={styles.modalTitle}>Seizure Details</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.date}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Time:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.time}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Duration:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.duration} minutes</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Heart Rate:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.heartRate} bpm</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>SpO2:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.spO2}%</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Movement:</Text>
+                    <Text style={styles.detailValue}>{selectedSeizure.movement}</Text>
+                  </View>
+                  <Text style={styles.notesLabel}>Notes</Text>
+                  <TextInput
+                    style={styles.noteInput}
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    placeholder="Add your notes here..."
+                    placeholderTextColor="#999"
+                  />
+                  <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
+                    <Text style={styles.saveButtonText}>Save Note</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -256,6 +290,7 @@ const styles = StyleSheet.create({
     top: 0,
     zIndex: 10,
     paddingTop: Platform.OS === 'ios' ? 30 : 0,
+    backgroundColor: '#F9F0FF',
   },
   header: {
     flexDirection: 'row',
@@ -267,7 +302,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    marginLeft: 10,
+    marginRight: 10,
+    marginTop: -25,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -305,6 +344,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
   },
   seizureTime: {
     fontWeight: 'bold',
@@ -313,63 +359,120 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)'
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 20,
   },
   modalBackground: {
-    flex: 1,
-    marginTop: 150,
-    justifyContent: 'center'
+    width: '90%',
+    maxHeight: '70%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalScroll: {
+    maxHeight: '100%',
+    paddingTop: 48,
   },
   modalContent: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    backgroundColor: 'white',
-    alignItems: 'stretch',
+    padding: 24,
+    paddingBottom: 32,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
     color: '#2E3A59',
   },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#2E3A59',
+    fontWeight: '600',
+  },
+  notesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E3A59',
+    marginTop: 16,
+    marginBottom: 8,
+  },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#CCC',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 12,
-    minHeight: 60,
-    textAlignVertical: 'top'
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    maxHeight: 120,
+    textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    fontSize: 14,
+    color: '#2E3A59',
+    marginBottom: 16,
   },
   saveButton: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#CB97F0',
     paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: 'center'
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   saveButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold'
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   logButton: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#CB97F0',
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
-    marginHorizontal: 20
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   logButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 16
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
   closeIcon: {
-    alignSelf: 'flex-end'
-  }
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+    padding: 12,
+    backgroundColor: 'white',
+    borderTopRightRadius: 16,
+  },
+  flatListContainer: {
+    flex: 1,
+  },
 });
 
 export default LogScreen;
