@@ -56,7 +56,14 @@ const LogScreen = () => {
         };
       });
 
-      setSeizures(parsed);
+      setSeizures(prev => {
+        // Keep any newly added seizures that might not be in the server response yet
+        const recentSeizures = prev.filter(s => 
+          !parsed.some(p => p.timestamp === s.timestamp) && 
+          Date.now() - new Date(s.timestamp).getTime() < 5000
+        );
+        return [...parsed, ...recentSeizures];
+      });
     } catch (err) {
       console.error('Error loading seizures:', err);
     }
@@ -114,6 +121,12 @@ const LogScreen = () => {
       if (!email) return Alert.alert('Error', 'User not logged in.');
 
       const { heartRate, spO2, movement } = generateCriticalSeizureData();
+      
+      // Create a timestamp for the selected date at the current time
+      const now = new Date();
+      const selectedDateTime = new Date(selectedDate);
+      selectedDateTime.setHours(now.getHours(), now.getMinutes());
+      const timestamp = selectedDateTime.toISOString();
 
       const payload = {
         epilepsyUserEmail: email,
@@ -121,8 +134,21 @@ const LogScreen = () => {
         longitude: 10.4024,
         heartRate,
         spO2,
-        movement
+        movement,
+        timestamp
       };
+
+      // Immediately add the new seizure to the state
+      const newSeizure = {
+        ...payload,
+        id: `temp-${Date.now()}`,
+        date: selectedDate,
+        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        duration: 1,
+        movement: movement.toString()
+      };
+      
+      setSeizures(prev => [...prev, newSeizure]);
 
       const response = await fetch(`${BASE_URL}/api/seizure`, {
         method: 'POST',
@@ -136,7 +162,11 @@ const LogScreen = () => {
       await triggerSeizureAlert(email);
 
       Alert.alert('Success', 'Seizure logged successfully and mates notified.');
-      fetchSeizures();
+      
+      // Wait a bit before fetching to ensure server has processed the new seizure
+      setTimeout(() => {
+        fetchSeizures();
+      }, 1000);
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'Failed to log seizure.');
@@ -196,7 +226,7 @@ const LogScreen = () => {
         
         <FlatList
           data={filteredSeizures}
-          keyExtractor={(item, i) => `${item.timestamp}-${i}`}
+          keyExtractor={(item, i) => `${item.id || item.timestamp}-${i}`}
           renderItem={renderSeizureItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.listContent}
@@ -206,6 +236,7 @@ const LogScreen = () => {
             </TouchableOpacity>
           }
           style={styles.flatListContainer}
+          extraData={seizures.length}
         />
       </View>
 

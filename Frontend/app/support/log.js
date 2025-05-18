@@ -123,18 +123,13 @@ const LogScreen = () => {
         translucent={Platform.OS === 'android'}
       />
 
-      {/* Header */}
       <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Seizure Log</Text>
         </View>
       </View>
 
-      {/* Content with proper margin to avoid header overlap */}
-      <ScrollView
-        style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}>
         <Calendar
           onDayPress={handleDayPress}
           markedDates={{
@@ -154,7 +149,6 @@ const LogScreen = () => {
               }
               return acc;
             }, {}),
-            // Add selection for dates without seizures
             ...(seizures.every(s => s.date !== selectedDate) ? {
               [selectedDate]: { selected: true, selectedColor: '#4F46E5' }
             } : {})
@@ -168,55 +162,57 @@ const LogScreen = () => {
         />
 
         <Text style={styles.sectionTitle}>Seizures on {selectedDate}</Text>
+        
         <FlatList
           data={filteredSeizures}
           keyExtractor={(item, i) => `${item.timestamp}-${i}`}
           renderItem={renderSeizureItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.listContent}
+          style={styles.flatListContainer}
         />
+      </View>
 
-        <Modal
-          visible={modalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setModalVisible(false)}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.modalContainer}
-          >
-            <View style={styles.modalBackground}>
-              <ScrollView contentContainerStyle={styles.modalContent}>
-                <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
-                  <Feather name="x" size={24} color="#4F46E5" />
-                </TouchableOpacity>
-                {selectedSeizure && (
-                  <>
-                    <Text style={styles.modalTitle}>Seizure Details</Text>
-                    <Text>Date: {selectedSeizure.date}</Text>
-                    <Text>Time: {selectedSeizure.time}</Text>
-                    <Text>Duration: {selectedSeizure.duration} minutes</Text>
-                    <Text>Heart Rate: {selectedSeizure.heartRate} bpm</Text>
-                    <Text>SpO2: {selectedSeizure.spO2}%</Text>
-                    <Text>Movement: {selectedSeizure.movement}</Text>
-                    <TextInput
-                      style={styles.noteInput}
-                      value={note}
-                      onChangeText={setNote}
-                      multiline
-                      placeholder="Add your notes here..."
-                    />
-                    <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
-                      <Text style={styles.saveButtonText}>Save Note</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      </ScrollView>
+          <View style={styles.modalBackground}>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <TouchableOpacity style={styles.closeIcon} onPress={() => setModalVisible(false)}>
+                <Feather name="x" size={24} color="#4F46E5" />
+              </TouchableOpacity>
+              {selectedSeizure && (
+                <>
+                  <Text style={styles.modalTitle}>Seizure Details</Text>
+                  <Text>Date: {selectedSeizure.date}</Text>
+                  <Text>Time: {selectedSeizure.time}</Text>
+                  <Text>Duration: {selectedSeizure.duration} minutes</Text>
+                  <Text>Heart Rate: {selectedSeizure.heartRate} bpm</Text>
+                  <Text>SpO2: {selectedSeizure.spO2}%</Text>
+                  <Text>Movement: {selectedSeizure.movement}</Text>
+                  <TextInput
+                    style={styles.noteInput}
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    placeholder="Add your notes here..."
+                  />
+                  <TouchableOpacity style={styles.saveButton} onPress={saveNote}>
+                    <Text style={styles.saveButtonText}>Save Note</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -354,7 +350,10 @@ const styles = StyleSheet.create({
   closeIcon: {
     alignSelf: 'flex-end',
     padding: 10,
-  }
+  },
+  flatListContainer: {
+    flex: 1,
+  },
 });
 
 export default LogScreen;
