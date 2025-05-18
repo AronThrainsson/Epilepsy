@@ -11,6 +11,7 @@ import java.util.List;
 
 public interface UserSupportRelationRepository extends JpaRepository<UserSupportRelation, String> {
 
+    List<UserSupportRelation> findBySupportUser(User supportUser);
     List<UserSupportRelation> findByEpilepsyUser(User epilepsyUser);
 
     boolean existsByEpilepsyUserAndSupportUser(User epilepsyUser, User supportUser);

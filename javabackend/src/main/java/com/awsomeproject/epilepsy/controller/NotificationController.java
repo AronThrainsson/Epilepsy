@@ -150,15 +150,33 @@ public class NotificationController {
 
     // GET seizures for a given epilepsy user by email
     @GetMapping("/seizures")
-    public ResponseEntity<List<SeizureDTO>> getSeizuresByEmail(@RequestParam String epilepsyUserEmail) {
-        User user = userRepository.findByEmail(epilepsyUserEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    public ResponseEntity<List<SeizureDTO>> getSeizures(
+            @RequestParam(required = false) String epilepsyUserEmail,
+            @RequestParam(required = false) String supportUserEmail) {
 
-        List<SeizureDTO> seizures = seizureRepository.findByEpilepsyUser(user).stream()
+        List<Seizure> seizures = new ArrayList<>();
+
+        if (epilepsyUserEmail != null) {
+            User user = userRepository.findByEmail(epilepsyUserEmail)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Epilepsy user not found"));
+            seizures = seizureRepository.findByEpilepsyUser(user);
+        } else if (supportUserEmail != null) {
+            User supportUser = userRepository.findByEmail(supportUserEmail)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Support user not found"));
+
+            List<UserSupportRelation> relations = relationRepository.findBySupportUser(supportUser);
+            for (UserSupportRelation relation : relations) {
+                seizures.addAll(seizureRepository.findByEpilepsyUser(relation.getEpilepsyUser()));
+            }
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email parameter is required");
+        }
+
+        List<SeizureDTO> seizureDTOs = seizures.stream()
                 .map(s -> new SeizureDTO(s.getId(), s.getHeartRate(), s.getSpO2(), s.getMovement(), s.getTimestamp(), s.getNote()))
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(seizures);
+        return ResponseEntity.ok(seizureDTOs);
     }
 
     // Get team members for an epilepsy user
