@@ -63,9 +63,40 @@ export default function Layout() {
           text: 'Logout',
           onPress: async () => {
             try {
-              await AsyncStorage.clear();
+              // First save the current availability setting
+              const userEmail = await AsyncStorage.getItem('userEmail');
+              let availabilityValue = null;
+              
+              if (userEmail) {
+                // Try to get user-specific availability
+                availabilityValue = await AsyncStorage.getItem(`availability_${userEmail}`);
+                if (!availabilityValue) {
+                  // Try general fallback
+                  availabilityValue = await AsyncStorage.getItem('availability');
+                }
+                console.log(`Preserving availability setting for ${userEmail}:`, availabilityValue);
+              }
+              
+              // Selectively clear only authentication-related data rather than everything
+              const keysToKeep = ['availability', `availability_${userEmail}`];
+              const allKeys = await AsyncStorage.getAllKeys();
+              const keysToRemove = allKeys.filter(key => 
+                !keysToKeep.includes(key) && 
+                !key.startsWith('availability_')
+              );
+              
+              await AsyncStorage.multiRemove(keysToRemove);
+              
+              // Make sure availability is re-saved after clear
+              if (availabilityValue && userEmail) {
+                await AsyncStorage.setItem(`availability_${userEmail}`, availabilityValue);
+                await AsyncStorage.setItem('availability', availabilityValue);
+                console.log(`Preserved availability setting for ${userEmail}:`, availabilityValue);
+              }
+              
               router.replace('/login');
             } catch (error) {
+              console.error('Error during logout:', error);
               Alert.alert('Error', 'Failed to logout. Please try again.');
             }
           },

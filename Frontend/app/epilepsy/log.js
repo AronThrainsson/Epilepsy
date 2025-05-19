@@ -27,18 +27,17 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 //imports the base URL for backend API calls 
 import { BASE_URL } from '../../config';
+import { triggerSeizureAlert } from '../services/notificationService';
 
 //Define of functional React component LogScreen, for displaying and managing seizure logs
 const LogScreen = () => {
-  //useState calls to store data and track UI behaviour / keep track of selected data (YYYY/MM/DD)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
-  const [seizures, setSeizures] = useState([]); //array of seizure records fetched from backend
-  const [refreshing, setRefreshing] = useState(false); //pull-to-refresh functionality, state to indicate if list is refreshing
-  const [modalVisible, setModalVisible] = useState(false); //tracks if modal pop-up is open/visible or closed
-  const [selectedSeizure, setSelectedSeizure] = useState(null); //stores seizure currently selected for viewing/editing
-  const [note, setNote] = useState(''); //to store a note input from the user
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [seizures, setSeizures] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedSeizure, setSelectedSeizure] = useState(null);
+  const [note, setNote] = useState('');
 
-  // Adjust layout depending on whether it is running on iOs or Andriod / add extra spacing for content positioning
   const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 60;
   const CONTENT_MARGIN_TOP = HEADER_HEIGHT + 20;
 
@@ -123,7 +122,49 @@ const LogScreen = () => {
     }
   };
 
-  //filter seizures to only include those on the currently selected date
+  // 👇 Random critical seizure data generator
+  const generateCriticalSeizureData = () => {
+    const heartRate = Math.floor(Math.random() * 40) + 130; // 130–170
+    const spO2 = Math.floor(Math.random() * 5) + 84; // 84–88
+    const movement = Math.floor(Math.random() * 10) + 1; // 1–10
+    return { heartRate, spO2, movement };
+  };
+
+  const logSeizure = async () => {
+    try {
+      const email = await AsyncStorage.getItem('userEmail');
+      if (!email) return Alert.alert('Error', 'User not logged in.');
+
+      const { heartRate, spO2, movement } = generateCriticalSeizureData();
+
+      const payload = {
+        epilepsyUserEmail: email,
+        latitude: 55.4038,
+        longitude: 10.4024,
+        heartRate,
+        spO2,
+        movement
+      };
+
+      const response = await fetch(`${BASE_URL}/api/seizure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Failed to log seizure');
+
+      // Trigger notification after successful seizure logging
+      await triggerSeizureAlert(email);
+
+      Alert.alert('Success', 'Seizure logged successfully and mates notified.');
+      fetchSeizures();
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to log seizure.');
+    }
+  };
+
   const filteredSeizures = seizures.filter(s => s.date === selectedDate);
 
   //render a seizure item with time and chevron icon (>) - opens modal on press
@@ -144,15 +185,12 @@ const LogScreen = () => {
         translucent={Platform.OS === 'android'}
       />
 
-      {/* App header with title and height adjusted (iOS/Android) */}
       <View style={[styles.headerContainer, { height: HEADER_HEIGHT }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Seizure Log</Text>
         </View>
       </View>
 
-      {/* Content with proper margin to avoid header overlap */}
-      {/* scrollable area for calendar and seizure list */}
       <ScrollView
         style={[styles.container, { marginTop: CONTENT_MARGIN_TOP }]}
         contentContainerStyle={styles.scrollContent}
@@ -184,7 +222,10 @@ const LogScreen = () => {
           contentContainerStyle={styles.listContent}
         />
 
-        {/*modal that slides up to show seizure details and note input */}
+        <TouchableOpacity style={styles.logButton} onPress={logSeizure}>
+          <Text style={styles.logButtonText}>+ Log Seizure</Text>
+        </TouchableOpacity>
+
         <Modal
           visible={modalVisible} /*determines if open or hiddden*/
           transparent /*dims the background */
@@ -321,31 +362,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2E3A59',
   },
-  closeIcon: {
-    position: 'absolute',
-    top: 16,
-    right: 16
-  },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#CCC',
     borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    minHeight: 100,
-    textAlignVertical: 'top',
+    padding: 10,
+    marginTop: 12,
+    minHeight: 60,
+    textAlignVertical: 'top'
   },
   saveButton: {
-    backgroundColor: '#CB97F0',
-    padding: 12,
-    marginTop: 20,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 12,
     borderRadius: 8,
+    marginTop: 16,
+    alignItems: 'center'
   },
   saveButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: '600',
+    color: '#FFF',
+    fontWeight: 'bold'
   },
+  logButton: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+    marginHorizontal: 20
+  },
+  logButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+  closeIcon: {
+    alignSelf: 'flex-end'
+  }
 });
 
 export default LogScreen;

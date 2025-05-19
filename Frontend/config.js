@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
 
-// i terminal for at finde ip adresse: ipconfig getifaddr en0
-const LOCAL_IP = 'http://10.36.209.139:8080'; // Your Mac IP (for real device & simulator)
+// To find your IP address:
+// Mac: terminal command 'ipconfig getifaddr en0'
+// Windows: command prompt 'ipconfig' and look for IPv4 Address
+const LOCAL_IP = 'http://192.168.1.75:8080'; // Update this with your computer's IP address
 
 export const BASE_URL =
   Platform.OS === 'android' && !__DEV__
     ? LOCAL_IP
     : Platform.OS === 'android'
-    ? 'http://192.168.1.1:8080'
+    ? LOCAL_IP  // Using same IP for both dev and prod on Android
     : LOCAL_IP;
