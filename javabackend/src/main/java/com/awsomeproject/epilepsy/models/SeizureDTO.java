@@ -1,9 +1,13 @@
+//A DTO class, DTO = Data Transfer Object  (to send without full entity)
+//safely transfer seizure data between backend and frontend, without exposing user, relationship or sensitive fields
 package com.awsomeproject.epilepsy.models;
-// SeizureDTO.java
 
+//import Java's date-time class for timestamps
 import java.time.LocalDateTime;
 
-public class SeizureDTO {
+//simplified version of seizure used for data transfer
+public class SeizureDTO { 
+    //data fields included in API response
     private Long id;
     private double heartRate;
     private double spO2;
@@ -11,6 +15,7 @@ public class SeizureDTO {
     private LocalDateTime timestamp;
     private String note;
 
+    //constructors to create a DTO with all fields
     public SeizureDTO(Long id, double heartRate, double spO2, int movement, LocalDateTime timestamp, String note) {
         this.id = id;
         this.heartRate = heartRate;
@@ -20,6 +25,7 @@ public class SeizureDTO {
         this.note = note;
     }
 
+    //getter and setter for the seizure note/allows getting and updating the note field
     public String getNote() {
         return note;
     }
@@ -27,7 +33,7 @@ public class SeizureDTO {
         this.note = note;
     }
 
-    // Getters
+    //read-only accessors for DTO fields
     public Long getId() { return id; }
     public double getHeartRate() { return heartRate; }
     public double getSpO2() { return spO2; }
